@@ -12,6 +12,12 @@ checkpoints/
 runs/
 Log/
 logs/
+artifacts/
+build/
+dist/
+**/eval_result/
+**/wandb/
+.cache/
 
 # H_RDT local artifacts and large model assets
 policy/H_RDT/.cache/

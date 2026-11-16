@@ -1,91 +1,113 @@
 # LingBot_VA
 
-**Contributor:** RoboDojo Team | **Paper:** LingBot-VA technical report | **arXiv:** TBD | **Original code:** See vendored `lingbot_va/`.
+**原适配贡献者：** RoboDojo Team
 
-`LingBot_VA` adapts the LingBot-VA policy to XPolicyLab/RoboDojo; it trains on precomputed Wan2.2 VAE latents rather than raw LeRobot parquet/video. Integration scripts live at this directory level; the vendored upstream implementation lives in `lingbot_va/`.
+接入 LingBot-VA，源码 vendored 在 `lingbot_va/`。
+训练读取预先计算的 Wan2.2 VAE latent，而不是直接读取原始 LeRobot parquet / 视频。
+原 adapter 的技术报告链接尚未补齐。
 
-Shared conventions — argument meanings, checkpoint naming, split-machine deployment, `EVAL_ENV_TYPE` — are documented in the [XPolicyLab README](../../README.md). Official results: [RoboDojo LeaderBoard](https://robodojo-benchmark.com/LeaderBoard).
+本轮按用户选择保留此 adapter，仅整理文档与静态检查，未在本机验证安装、训练或模型评测。
+公共参数与数据契约见[根 README](../../README.md)，能力状态见[交接页](../../docs/STATUS.md)。
 
-## Installation
+<a id="installation"></a>
+
+## 安装
 
 ```bash
 cd XPolicyLab/policy/LingBot_VA
 bash install.sh
-conda activate <policy_env>  # e.g. lingbot_va
+conda activate <policy_env>
 ```
 
-## Data Processing
+<a id="data-processing"></a>
 
-`process_data.sh` takes a standard RoboDojo LeRobot **v2.1** dataset (parquet + per-camera mp4, in the keys of `XPolicyLab/scripts/transform_lerobot_v21_format.py` — [Official LeRobot conversion](../../README.md#official-lerobot-conversion)) and runs every upstream step to produce a training-ready latent dataset: it maps actions into the 30-dim layout — left/right arm EEF (7+7), left/right arm joints (7+7), left/right gripper (1+1), with missing dimensions zero-padded — adds an `action_config` segment to each `meta/episodes.jsonl` line, encodes Wan2.2 VAE video latents into a `latents/` tree (videos resized to ~256×256 and downsampled to 5–15 fps, matching `va_robotwin30_train_cfg`), and writes `empty_emb.pt` (the Wan2.2 text embedding of an empty string, used when classifier-free guidance drops language conditioning) at the dataset root. The base model supplies the VAE and text encoder, so `LINGBOT_VA_BASE_MODEL_PATH` must be set.
+## 数据处理
+
+输入为采用[官方键](../../README.md#official-lerobot-conversion)的 RoboDojo LeRobot **v2.1** 数据，包含 parquet 和逐相机 MP4。
+脚本执行动作映射、分段标注、VAE 编码和空文本 embedding 生成：
+
+- 动作映射为 30 维：左右臂 EEF（7+7）、左右臂关节（7+7）、左右夹爪（1+1），缺失维度补零。
+- `meta/episodes.jsonl` 的每条 episode 写入 `action_config`；默认每 episode 一段，范围 `[0, length)`，`action_text` 为任务描述。
+- Wan2.2 VAE 输出到 `latents/`，目录对应 `videos/`，相机来自 `obs_cam_keys`；RoboDojo 使用 cam_high / 左右腕。
+- 视频约缩放为 256×256，按 `va_robotwin30_train_cfg` 采用 5–15 fps 范围内的采样配置；wrapper 的目标 fps 默认 10。
+- 数据根生成 `empty_emb.pt`，用于 classifier-free guidance 丢弃语言条件时的空字符串 embedding。
+
+VAE 与文本编码器来自基础模型，必须设置 `LINGBOT_VA_BASE_MODEL_PATH`。
 
 ```bash
-cd XPolicyLab/policy/LingBot_VA
-export LEROBOT_DATA_ROOT=<parent_dir_of_lerobot_datasets>      # or LINGBOT_VA_SOURCE_DATASET=<full_dataset_path>
+export LEROBOT_DATA_ROOT=<parent_dir_of_lerobot_datasets>
 export LEROBOT_DATASET_REPO_ID=<source_dataset_folder_name>
 export LINGBOT_VA_BASE_MODEL_PATH=<path_to_lingbot-va-base>
-
 bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> [expert_data_num]
-
-# Example: build the latent dataset (optional trailing episode count; omit or 0 for all)
 bash process_data.sh RoboDojo cotrain arx_x5 joint
 ```
 
-- The output (default `data/<bench>-<ckpt>-<env>-<action>/`, override with `LINGBOT_VA_DATASET_PATH`) mirrors `videos/` under `latents/`, with one latent file per camera in the config's `obs_cam_keys` (`cam_high`, `cam_left_wrist`, `cam_right_wrist` for RoboDojo); the trainer skips any segment whose latent files are missing for a camera.
-- Latent files are named `episode_{index}_{start_frame}_{end_frame}.pth`, matching the `action_config` segments in `episodes.jsonl` (e.g. segment `0–450` → `episode_000000_0_450.pth`). `process_data.sh` writes one segment per episode (`start_frame=0`, `end_frame=length`, `action_text` = the episode task); for multiple sub-tasks per episode, use one entry (and one latent file per camera) per segment, and regenerate the matching latent files if you edit segments manually.
-- The latent `.pth` field schema and full upstream data-prep details are in `lingbot_va/README.md` § Custom Dataset Preparation and § Post-Training LingBot-VA.
+输出默认 `data/<bench>-<ckpt>-<env>-<action>/`，可用 `LINGBOT_VA_DATASET_PATH` 覆盖。
+latent 文件名为 `episode_{index}_{start_frame}_{end_frame}.pth`，例如 `episode_000000_0_450.pth`。
+缺任一相机 latent 的片段会被训练器跳过。若手动调整为多子任务分段，必须同时重生成每个相机的匹配 latent。
+详细 `.pth` schema 与上游步骤见 `lingbot_va/README.md` 的 Custom Dataset Preparation / Post-Training LingBot-VA。
 
-## Training
+<a id="training"></a>
 
-FSDP post-training through the upstream trainer. It requires a latent-prepared dataset from Data Processing (containing `latents/`, `empty_emb.pt`, and `action_config` in `meta/episodes.jsonl`) and the base model linked at `.merged_ckpt`:
+## 训练
+
+使用上游 FSDP post-training，需要数据中的 `latents/`、`empty_emb.pt`、`action_config`，以及 `.merged_ckpt` 基础模型链接：
 
 ```bash
-cd XPolicyLab/policy/LingBot_VA
-conda activate <policy_env>
-export LINGBOT_VA_DATASET_PATH=<path_to_prepared_dataset>   # or set LEROBOT_DATA_ROOT + LEROBOT_DATASET_REPO_ID
+export LINGBOT_VA_DATASET_PATH=<path_to_prepared_dataset>
 export LINGBOT_VA_BASE_MODEL_PATH=<path_to_lingbot-va-base>
 ln -sfn "${LINGBOT_VA_BASE_MODEL_PATH}" .merged_ckpt
+```
 
+```bash
 bash train.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id>
-
-# Example: train a cotrain run on eight GPUs (FSDP-sharded transformer; a single GPU is typically insufficient)
 bash train.sh RoboDojo cotrain arx_x5 joint 0 0,1,2,3,4,5,6,7
 ```
 
-Checkpoints land in `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`; at eval time `ckpt_name` may be the short run name, the full run-directory name, or a path to a checkpoint directory. Before training, ensure the base model's `transformer/config.json` has `"attn_mode": "flex"`; switch it to `"torch"` or `"flashattn"` before inference/eval (upstream README § Important: `attn_mode` Configuration).
+Checkpoint 默认位于 `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`。
+评测的 `ckpt_name` 可传短运行名、完整运行目录名或 checkpoint 路径。
+原说明使用多卡分片，单卡通常不足。
+训练前检查基础模型 `transformer/config.json` 的 `attn_mode` 为 `flex`，推理/评测前按上游说明切换为 `torch` 或 `flashattn`。
 
-## Evaluation
+<a id="evaluation"></a>
+
+## 评测
 
 ```bash
-cd XPolicyLab/policy/LingBot_VA
 bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <seed> \
-  <policy_gpu_id> <env_gpu_id> <policy_conda_env> <eval_env_conda_env>
-
-# Example: evaluate a trained cotrain checkpoint on stack_bowls
-bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0 0 0 <policy_conda_env> <eval_env_conda_env>
+  <policy_gpu_id> <env_gpu_id> <policy_env> <eval_env_conda_env>
+bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0 0 0 <policy_env> <eval_env_conda_env>
 ```
 
-`EVAL_ENV_TYPE=debug` runs the offline wiring check (no simulator); leave it unset or set `EVAL_ENV_TYPE=sim` for RoboDojo simulation. For split-machine deployment via `setup_eval_policy_server.sh` / `setup_eval_env_client.sh`, follow the [Deployment Flow](../../README.md#-deployment-flow).
+`EVAL_ENV_TYPE=debug` 检查离线接线，仍需模型依赖和权重；不设置或设为 `sim` 时走仿真。
+分机运行见[部署流程](../../README.md#-deployment-flow)。
 
-`eval_batch` is `false` and must stay that way: `wan_va_server` keeps one global KV/VAE/`frame_st_id` cache, so one process can serve only one env. `get_action_batch` raises `NotImplementedError`.
+`eval_batch` 必须保持 `false`：`wan_va_server` 共用全局 KV/VAE/`frame_st_id` 缓存，一个进程只能服务一个环境。
+`get_action_batch` 会抛出 `NotImplementedError`。
+`eval.sh` 自动启动实际持有权重的 wan_va 后端，需要基础模型路径；也可指定已运行后端。
 
-## Configuration
+<a id="configuration"></a>
 
-`deploy.yml` keys to check before evaluation: `env_cfg`, `protocol`, `config_name`, `checkpoint_path`, `base_model_path`, `rollout_mode`, `result_dir`, `va_server_host`, `va_server_port`, `obs_transform_pipeline`.
+## 配置
 
-Environment variables used by the adapter scripts:
+检查 `deploy.yml` 的 `env_cfg`、`protocol`、`config_name`、`checkpoint_path`、`base_model_path`、
+`rollout_mode`、`result_dir`、`va_server_host`、`va_server_port`、`obs_transform_pipeline`。
 
-| Variable | Notes |
-|---|---|
-| `LEROBOT_DATA_ROOT` | Parent directory that holds LeRobot dataset folders. |
-| `LEROBOT_DATASET_REPO_ID` | Source dataset folder name under `LEROBOT_DATA_ROOT`; ignored when `LINGBOT_VA_DATASET_PATH` is set. |
-| `LINGBOT_VA_SOURCE_DATASET` | Full path to the source LeRobot dataset; overrides the two variables above. |
-| `LINGBOT_VA_DATASET_PATH` | Output path for the prepared latent dataset (default `data/<tag>`); also the dataset consumed by training. |
-| `LINGBOT_VA_BASE_MODEL_PATH` | **Required:** `lingbot-va-base` weights (VAE + text encoder); also used at eval when `deploy.yml` `base_model_path` is null. |
-| `LINGBOT_VA_PROCESS_GPU` | GPU id used for latent encoding (default `0`). |
-| `LINGBOT_VA_TARGET_FPS` | Target sampling fps for latents (default `10`). |
-| `LINGBOT_VA_VA_HOST` / `LINGBOT_VA_VA_PORT` | Point evaluation at an already-running wan_va backend instead of auto-launching one. |
+| 环境变量 | 用途 |
+| --- | --- |
+| `LEROBOT_DATA_ROOT` / `LEROBOT_DATASET_REPO_ID` | 数据根目录与源数据集名 |
+| `LINGBOT_VA_SOURCE_DATASET` | 源数据完整路径，优先于上述源数据定位 |
+| `LINGBOT_VA_DATASET_PATH` | 准备后的 latent 数据输出与训练读取路径 |
+| `LINGBOT_VA_BASE_MODEL_PATH` | 必填，基础权重；deploy 的 base_model_path 为空时也用于评测 |
+| `LINGBOT_VA_PROCESS_GPU` | latent 编码 GPU，默认 0 |
+| `LINGBOT_VA_TARGET_FPS` | latent 采样 fps，默认 10 |
+| `LINGBOT_VA_VA_HOST` / `LINGBOT_VA_VA_PORT` | 使用已运行的 wan_va 后端 |
 
-## Notes
+`LINGBOT_VA_DATASET_PATH` 显式指定准备后的数据时，训练不再用根目录和 repo ID 拼接。
+训练必须先完成 latent pipeline，不能只提供普通 LeRobot 数据。
 
-- **Latent pipeline is mandatory:** do not point training at a plain LeRobot dataset without `latents/` and `empty_emb.pt`; run Data Processing first.
-- `eval.sh` auto-launches the wan_va backend (which holds the real weights). It requires a base model path: set `LINGBOT_VA_BASE_MODEL_PATH` or `base_model_path` in `deploy.yml`.
+<a id="notes"></a>
+
+## 注意事项
+
+训练必须完成 latent 准备；推理必须提供基础模型，并保持单环境。

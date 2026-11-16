@@ -1,166 +1,199 @@
 # StarVLA
 
-**Contributor:** RoboDojo Team | **Paper:** StarVLA: A Versatile Vision-Language-Action Model with Efficient Training and Policy Adaptation | **arXiv:** https://arxiv.org/abs/2604.05014 | **Original code:** https://github.com/starVLA/starVLA
+**原适配贡献者：** RoboDojo Team
+[论文](https://arxiv.org/abs/2604.05014) · [上游代码](https://github.com/starVLA/starVLA)
 
-`StarVLA` adapts the StarVLA vision-language-action framework to XPolicyLab/RoboDojo, exposing three variants that share the public `Qwen3-VL-4B-Instruct` backbone. Integration scripts live at this directory level; the vendored upstream implementation lives in `source_starvla/`.
+本 adapter 接入 StarVLA 视觉语言动作框架，源码 vendored 在 `source_starvla/`。
+原 adapter 文档包含既往 RoboDojo 运行记录，下面保留其关键配方与结果；本轮只展开策略、整理中文说明并做静态检查，未重跑模型。
+公共接口见[根 README](../../README.md)，当前验证范围见[交接页](../../docs/STATUS.md)。
 
-Shared conventions — argument meanings, checkpoint naming, split-machine deployment, `EVAL_ENV_TYPE` — are documented in the [XPolicyLab README](../../README.md). Official results: [RoboDojo LeaderBoard](https://robodojo-benchmark.com/LeaderBoard).
+<a id="supported-variants"></a>
 
-## Supported Variants
+## 支持的变体
 
-| Public name | StarVLA framework registry | Action head |
-|---|---|---|
-| `starVLA-OFT` | `QwenOFT` | MLP regression head over action-token hidden states |
-| `starVLA-GR00T` | `QwenGR00T` | Flow-matching DiT action head |
-| `starVLA-π` | `QwenPI_v3` | Layer-wise interleaved cross/self-attention DiT flow-matching head |
+| 对外名称 | 框架注册名 | 动作头 |
+| --- | --- | --- |
+| starVLA-OFT | `QwenOFT` | action-token 隐状态上的 MLP 回归头 |
+| starVLA-GR00T | `QwenGR00T` | Flow-matching DiT |
+| starVLA-π | `QwenPI_v3` | 逐层交错 cross/self-attention 的 DiT flow-matching 头 |
 
-These names are reporting labels. All three variants use `StarVLA` as the XPolicyLab runtime `policy_name`; the selected checkpoint identifies the framework implementation. The action-policy components are trained from scratch, while Qwen3-VL-4B-Instruct is used as the public backbone initialization. No internal robot data, private demonstrations, hidden VLA pretraining, or unreleased pretrained policy weights are required by this adapter.
+三者的 XPolicyLab `policy_name` 均为 `StarVLA`，具体实现由 checkpoint 配置决定。
+原配方使用公开 `Qwen3-VL-4B-Instruct` 初始化 backbone，动作组件从头训练；
+该 adapter 的公开配方不要求内部机器人数据、私有示范或未发布的策略权重。
 
-## External StarVLA Runtime Contract
+<a id="external-starvla-runtime-contract"></a>
 
-The vendored `source_starvla` runtime implements the inference-side contract below. A separate checkout supplied through `starvla_root` must provide the same interface; checkpoints and normalization statistics are user-provided and are not included here.
+## Runtime 契约
 
-- Register `QwenOFT`, `QwenGR00T`, and `QwenPI_v3` and reconstruct the framework selected by the checkpoint configuration.
-- Accept three RGB observations (`cam_head`, `cam_left_wrist`, and `cam_right_wrist`), a language instruction, and an optional 14-dimensional ARX X5 absolute-joint state ordered as left arm, left gripper, right arm, and right gripper.
-- Normalize state with the checkpoint's `arx_x5` training statistics before model inference. The 50-step RoboDojo schema uses q99 normalization for all dimensions, including the continuous grippers.
-- Return normalized actions with shape `[batch, horizon, 14]` and expose `action_chunk_size` through websocket server metadata. The runtime must unnormalize actions with the matching `arx_x5` statistics before returning them to XPolicyLab.
-- Support a 50-step predicted action chunk. RoboDojo executes the first 16 actions and then requests a new chunk.
-- For the released RoboDojo PI-v3 checkpoint, route the layer-wise embeddings through the canonical interleaved DiT forward. The hand-written block loop predating StarVLA fix [`c521dec`](https://github.com/starVLA/starVLA/commit/c521decb7441c7dfea282c61dc758456bcffbb8f) silently treated every block as cross-attention and is incompatible with this checkpoint.
+若通过 `starvla_root` 使用外部 checkout，必须与 vendored runtime 保持相同接口。权重与统计量需另行准备。
+RoboDojo ARX X5 发布配方的契约为：
 
-Released checkpoints should retain their run-directory layout so the runtime can find `config.yaml`, `config.full.yaml`, and `dataset_statistics.json` next to the `checkpoints/` directory. The public data-mixture name is `robodojo_arx_x5_h50_q99`; `robodojo_v21_all_h50_q99` remains supported as a compatibility alias.
+- 根据 checkpoint 配置注册并重建 `QwenOFT`、`QwenGR00T` 或 `QwenPI_v3`。
+- 接收三路 RGB：`cam_head`、`cam_left_wrist`、`cam_right_wrist`，以及指令和可选 14D 原始绝对关节状态。
+  状态顺序为左臂、左夹爪、右臂、右夹爪。
+- 推理前使用匹配 checkpoint 的 `arx_x5` 统计量归一化状态；50-step 配方对全部维度（含连续夹爪）使用 q99。
+- 内部动作形状为 `[batch, horizon, 14]`；返回 XPolicyLab 前用匹配统计量反归一化。
+  服务 metadata 暴露 `action_chunk_size`。
+- 预测 horizon=50，RoboDojo 执行前 16 步后重新规划。
+- 发布的 RoboDojo PI-v3 checkpoint 需要上游修复
+  [c521dec](https://github.com/starVLA/starVLA/commit/c521decb7441c7dfea282c61dc758456bcffbb8f)
+  的规范交错 DiT forward。旧的手写循环把每层都当作 cross-attention，与该 checkpoint 不兼容。
 
-## Installation
+保留运行目录布局，使 `config.yaml`、`config.full.yaml`、`dataset_statistics.json` 与 `checkpoints/` 相邻。
+公开数据混合名为 `robodojo_arx_x5_h50_q99`，兼容别名为 `robodojo_v21_all_h50_q99`。
 
-`install.sh` installs PyTorch 2.6, the upstream requirements, flash-attn, and `source_starvla/` in editable mode into the active environment:
+<a id="installation"></a>
+
+## 安装
+
+原安装脚本向当前环境安装 PyTorch 2.6、上游依赖、flash-attn，并 editable 安装源码；运行前确认目标环境。
 
 ```bash
 cd XPolicyLab/policy/StarVLA
 bash install.sh
-conda activate <policy_env>  # e.g. starvla
+conda activate <policy_env>
 ```
 
-## Data Processing
+<a id="data-processing"></a>
 
-Converts RoboDojo demos into a LeRobot dataset at `data/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>/`. `raw_task_dirs` is the source task dir (or comma-separated list) under `data/<bench_name>/` and defaults to `ckpt_name`; a non-numeric fifth argument is treated as `raw_task_dirs`. Use the same `ckpt_name` when launching `train.sh`, unless you also set `STARVLA_XPOLICY_DATASET_NAME` explicitly.
+## 数据处理
 
-The output is LeRobot v3.0 with the official keys — `observation.state`, `action`, `observation.images.cam_high` / `cam_left_wrist` / `cam_right_wrist` ([official LeRobot conversion](../../README.md#official-lerobot-conversion)). The bundled converter is used instead of `scripts/transform_lerobot_v30_format.py` because starVLA's GR00T-style loader also needs a `meta/modality.json` written alongside the dataset.
+将 RoboDojo 示范转换到 `data/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>/`。
+`raw_task_dirs` 为源目录下任务名或逗号列表，默认 `ckpt_name`；非数值第五参数按它解释。
+输出为带[官方键](../../README.md#official-lerobot-conversion)的 LeRobot v3.0：
+`observation.state`、`action`、`observation.images.cam_high` / `cam_left_wrist` / `cam_right_wrist`。
+使用附带转换器是因为 GR00T 风格 loader 还需要 `meta/modality.json`。
 
 ```bash
-cd XPolicyLab/policy/StarVLA
 bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> [expert_data_num] [raw_task_dirs]
-
-# Example: convert stack_bowls demos for arx_x5 joint control
 bash process_data.sh RoboDojo stack_bowls arx_x5 joint
-
-# Example: create a 50-episode ablation while reading from the original task data
 bash process_data.sh RoboDojo stack_bowls_50ep arx_x5 joint 50 stack_bowls
-
-# Example: rename the output while using all episodes from the original task data
 bash process_data.sh RoboDojo stack_bowls_full arx_x5 joint stack_bowls
 ```
 
-## Training
+<a id="training"></a>
+
+## 训练
 
 ```bash
-cd XPolicyLab/policy/StarVLA
 bash train.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id> [extra_args...]
-
-# Example: train the converted stack_bowls dataset on GPU 0 (use gpu_id 0,1,2,3 for multi-GPU)
 bash train.sh RoboDojo stack_bowls arx_x5 joint 0 0
 ```
 
-Checkpoints land in `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`; at eval time `ckpt_name` may be the short run name, the full run-directory name, or a path to a checkpoint directory. The trainer generates a per-run config from `xpolicy_oft_vla.yaml` under `.generated/`, requires the converted LeRobot dataset (checked via `meta/modality.json`), and infers the process count from a comma-separated `gpu_id`; trailing `extra_args` are forwarded to the upstream trainer. Overrides: `STARVLA_DATA_ROOT` (default `data/`), `STARVLA_DATA_MIX` (default `xpolicylab_runtime`), `STARVLA_XPOLICY_DATASET_NAME` (default `<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>`).
+Checkpoint 写入 `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`。
+评测可传短运行名、完整运行目录名或 checkpoint 路径。
+训练器从 `xpolicy_oft_vla.yaml` 在 `.generated/` 生成运行配置，通过 `meta/modality.json` 检查数据，
+按 GPU 列表推导进程数，并将尾部 `extra_args` 转给上游训练器。
 
-## Evaluation
+训练和转换使用相同 `ckpt_name`，也可显式设置 `STARVLA_XPOLICY_DATASET_NAME`。
+`STARVLA_DATA_ROOT` 默认 `data/`，`STARVLA_DATA_MIX` 默认 `xpolicylab_runtime`，
+数据名默认 `<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>`。
+
+<a id="evaluation"></a>
+
+## 标准评测
 
 ```bash
-cd XPolicyLab/policy/StarVLA
 bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <seed> \
-  <policy_gpu_id> <env_gpu_id> <policy_conda_env> <eval_env_conda_env>
-
-# Example: evaluate a trained stack_bowls checkpoint
-bash eval.sh RoboDojo stack_bowls RoboDojo-stack_bowls-arx_x5-joint-0 arx_x5 joint 0 0 0 <policy_conda_env> <eval_env_conda_env>
+  <policy_gpu_id> <env_gpu_id> <policy_env> <eval_env_conda_env>
+bash eval.sh RoboDojo stack_bowls RoboDojo-stack_bowls-arx_x5-joint-0 arx_x5 joint 0 0 0 <policy_env> <eval_env_conda_env>
 ```
 
-`EVAL_ENV_TYPE=debug` runs the offline wiring check (no simulator); leave it unset or set `EVAL_ENV_TYPE=sim` for RoboDojo simulation. For split-machine deployment via `setup_eval_policy_server.sh` / `setup_eval_env_client.sh`, follow the [Deployment Flow](../../README.md#-deployment-flow).
+`EVAL_ENV_TYPE=debug` 检查离线接线，仍需模型环境与权重；不设置或设为 `sim` 时走仿真。
+分机运行见[部署流程](../../README.md#-deployment-flow)。
 
-### Released Hugging Face RoboDojo checkpoints
+<a id="released-hugging-face-robodojo-checkpoints"></a>
 
-Release-specific launchers, checkpoint preparation, simulator preflights, and
-their reproducibility tests are kept together under `scripts/`. The root-level
-`setup_eval_*` files remain the fixed XPolicyLab policy entry points.
+### 已发布 RoboDojo checkpoint 的专用入口
 
-Use the dedicated entry point for the released QwenOFT, QwenGR00T, and QwenPI_v3 checkpoints. It pins the exact Hugging Face revision, preserves the complete run-directory layout, verifies the weight and normalization SHA256 values, and starts the vendored StarVLA server with the published RoboDojo runtime contract:
+发布版准备、启动、simulator 预检及其复现测试位于 `scripts/`，根级 `setup_eval_*` 保持固定 adapter 入口。
+专用入口锁定 Hugging Face revision，保留完整运行目录，并校验权重和 normalization SHA-256：
 
 ```bash
-# From a current RoboDojo checkout, install its official benchmark assets once.
+# 在对应 RoboDojo 工作区先准备官方 benchmark 资产。
 cd RoboDojo
 bash scripts/init_assets.sh
 cd XPolicyLab/policy/StarVLA
 
-# Exact seed-0 commands used for the 10-layout checks reported below.
 STARVLA_ROBODOJO_NUM_ENVS=1 bash scripts/eval_hf_robodojo.sh oft build_tower 0 0 1 \
   <starvla_env> <robodojo_sim_env> 10
 STARVLA_ROBODOJO_NUM_ENVS=5 bash scripts/eval_hf_robodojo.sh groot build_tower 0 0 1 \
   <starvla_env> <robodojo_sim_env> 10
 STARVLA_ROBODOJO_NUM_ENVS=5 bash scripts/eval_hf_robodojo.sh pi_v3 build_tower 0 0 1 \
   <starvla_env> <robodojo_sim_env> 10
-
-# Use `native` for the task's official episode count instead of a quick check.
 bash scripts/eval_hf_robodojo.sh pi_v3 build_tower 0 0 1 <starvla_env> <robodojo_sim_env> native
 ```
 
-The pinned releases' official 50-episode `build_tower` references are:
+`native` 使用任务官方 episode 数。10-layout 是快速契约检查，不能代替官方 50-episode 协议。
+原 adapter 文档记录的发布版 `build_tower` 50-episode 参考值如下，**本轮未独立复核**：
 
-| Released checkpoint | Success rate | Score |
-|---|---:|---:|
+| checkpoint | 成功率 | Score |
+| --- | --- | --- |
 | [QwenOFT](https://huggingface.co/StarVLA/Qwen3vl4b-OFT-RoboDojo) | 36% | 50.60 |
 | [QwenGR00T](https://huggingface.co/StarVLA/Qwen3vl4b-GR00T-RoboDojo) | 14% | 20.80 |
 | [QwenPI_v3](https://huggingface.co/StarVLA/StarVLA-Qwen3vl4b-PIv3-RoboDojo) | 56% | 65.00 |
 
-On 2026-08-09, we ran the three seed-0 commands above on RoboDojo `36bfcb7c` and XPolicyLab `fd420490` plus this change. The downloaded checkpoint and sidecar files matched every SHA256 pinned in the release manifest. The complete 10-layout results were:
+原文还记录了 2026-08-09 在 RoboDojo `36bfcb7c`、XPolicyLab `fd420490` 加当时改动上的 seed-0 结果：
 
-| Released checkpoint | Isaac environments | Successes | Score | Unstable |
-|---|---:|---:|---:|---:|
+| checkpoint | Isaac 并行环境数 | 成功数 | Score | Unstable |
+| --- | --- | --- | --- | --- |
 | QwenOFT | 1 | 4/10 | 58.00 | 0 |
 | QwenGR00T | 5 | 1/10 | 20.00 | 0 |
 | QwenPI_v3 | 5 | 5/10 | 57.00 | 0 |
 
-With the same pinned PI-v3 snapshot, seed, layouts, data contract, and simulator, the legacy all-cross-attention forward produced 0/10 successes and score 0; the canonical interleaved forward produced 5/10 and score 57. QwenOFT and QwenGR00T do not execute the PI-v3 action-head path and were not changed by that correction.
+据该历史记录，相同 PI-v3 snapshot / seed / layout 下，旧 all-cross-attention forward 为 0/10、Score 0，
+规范交错 forward 为 5/10、Score 57；另外两个变体不经过此 PI-v3 路径。
+这些是原 adapter 历史记录，**不是本机本轮实测**。
 
-The 10-episode command is a quick contract check rather than a replacement for the official 50-episode protocol. Near-zero success together with visibly abnormal arm motion should not be accepted as a small-sample fluctuation: inspect the server handshake and first state-contract log described below.
+专用入口自行启动 vendored StarVLA server，不应替换为另一个未固定版本 checkout 的 server。
+机器人动作开始前需由握手证明：输入 RGB、原始 14D 状态的 q99 只应用一次、输出反归一化绝对关节动作、
+horizon=50 / execute=16；若发布 manifest 要求特定 PI-v3 forward，还必须证明该版本。
+要求来自具体发布 manifest，不能对所有旧 PI-v3 checkpoint 一概强制同一实现。
+首次带状态请求会记录原始值与归一化值；状态或 normalization 契约不兼容时应先失败。
+原文对训练视频的检查认为三种发布权重都应接收 RGB，无需额外通道交换。
 
-Do **not** start `deployment/model_server/server_policy.py` from a separate or unpinned upstream StarVLA checkout. `scripts/eval_hf_robodojo.sh` starts the XPolicyLab vendored server itself. The adapter requires the server handshake to confirm all of the following before the simulator can move the robot:
+专用入口关闭 renderer 多 GPU，显式指定物理 simulator GPU，默认单环境顺序执行。
+`STARVLA_ROBODOJO_NUM_ENVS=5` 可复现历史五环境 batching；`EVAL_NUM=10` 仍表示共十个 layout，分两批。
+`deploy.yml` 保持 batch-capable。launcher shim 禁用 argparse 参数缩写，避免 `--device cuda:N` 与 `--device_id` 冲突。
+`STARVLA_ROBODOJO_KIT_ARGS` 用于本机确实需要的 Kit 参数；Isaac EULA 经实际接受后可用 `OMNI_KIT_ACCEPT_EULA=YES` 非交互运行。
 
-- images are RGB;
-- the input is raw 14D ARX X5 state and the server applies the checkpoint's q99 training transform exactly once;
-- the server returns unnormalized 14D absolute-joint actions;
-- the predicted horizon is 50 and RoboDojo replans after executing 16 actions.
+启动前会检查官方机器人、物体、材质、layout 资产及路径环境所需 OpenGL/GLU 库。
+环境日志需到达 `Simulation App Startup Complete` 并开始任务 episode 才算有效运行。
+在此前发生的 `VK_ERROR_DEVICE_LOST`、退出 139 或 NVIDIA Xid 属于 simulator / GPU 故障，不计作零分任务结果。
+接近零成功率伴随异常臂动作时，应检查握手与首次状态日志。
 
-For the pinned RoboDojo PI-v3 release, the dedicated entry point also requires the server handshake to advertise the canonical interleaved forward from upstream StarVLA fix [`c521dec`](https://github.com/starVLA/starVLA/commit/c521decb7441c7dfea282c61dc758456bcffbb8f). The requirement comes from the release manifest rather than the framework name, because older PI-v3 checkpoints may intentionally require the legacy forward. An incompatible runtime stops before opening the simulator instead of loading the weights successfully and emitting invalid actions.
+策略环境参数支持 conda 名、venv 目录、含 `.venv` 的 uv 项目或 Python 可执行路径。
+RoboDojo 环境参数支持 conda 名或绝对 prefix；非交互 shell 未初始化 conda 时可用 prefix。
+发布清单见 [hf_robodojo_checkpoints.json](scripts/hf_robodojo_checkpoints.json)。
 
-The RGB setting is based on inspection of the actual three-camera LeRobot v2.1 MP4s used by these runs, decoded through the training backend: the stored frames have natural colors. No RGB/BGR swap is needed for any of the three released checkpoints. The first state-bearing request is logged with both raw and normalized values; a missing or incompatible normalization contract now fails before evaluation instead of producing abnormal arm motion.
+| 环境变量 | 用途 |
+| --- | --- |
+| `STARVLA_HF_ROOT` | 下载根目录 |
+| `STARVLA_HF_LOCAL_FILES_ONLY=1` | 禁用网络下载 |
+| `STARVLA_HF_VERIFY_ONLY=1` | 校验已准备好的本地目录 |
+| `STARVLA_BASE_VLM` | 离线 Qwen3-VL-4B-Instruct 路径，三个发布版均引用它 |
+| `STARVLA_HF_SKIP_WEIGHT_HASH=1` | 检查大小后跳过完整哈希；仅在已完整校验后使用 |
+| `STARVLA_CPU_THREADS` | 未设置 OMP/MKL 时的导入线程数，默认 8 |
 
-The dedicated entry point also launches RoboDojo with renderer multi-GPU disabled and an explicit physical simulator device. It defaults to one Isaac environment and runs the requested episodes sequentially as the safest portable 10-layout contract check. The archived author-side PI-v3 reference run used `eval_batch: true` with five parallel environments; reproduce that batching with `STARVLA_ROBODOJO_NUM_ENVS=5` while keeping the requested episode count unchanged. `EVAL_NUM=10` still means ten layouts, processed as two batches of five. The checked-in `deploy.yml` enables the batch-capable adapter, so both one-env and five-env commands use the same model contract. A small launcher shim disables argparse option abbreviation so current RoboDojo does not mistake AppLauncher's `--device cuda:N` for its integer `--device_id`. Set `STARVLA_ROBODOJO_KIT_ARGS` only if the local Isaac setup needs additional Kit arguments. If Isaac Sim prompts for its EULA, accept it according to your organization's process and then set `OMNI_KIT_ACCEPT_EULA=YES` for non-interactive runs.
+专用入口采用单进程，并清理继承的 torchrun / MPI rank 变量，避免等待不存在的其他 rank。
 
-Before loading the checkpoint, the entry point verifies that RoboDojo's official robot, object, material, and evaluation-layout assets are present; a fresh checkout should install them with `bash scripts/init_assets.sh`. A path-based RoboDojo environment is also checked for the host OpenGL/GLU libraries required by Isaac Sim. Install compatible system runtime packages if that check fails; do not use arbitrary copied shared libraries. A run is valid only after the log reaches `Simulation App Startup Complete` and begins task episodes. `VK_ERROR_DEVICE_LOST`, exit 139, or an NVIDIA Xid before that point is a simulator/GPU failure rather than a zero-score episode; move the run to a healthy GPU (or have the cluster administrator recover the device) and rerun it.
+<a id="configuration"></a>
 
-The policy environment argument may be a Conda environment name, a venv directory, a uv project containing `.venv`, or a Python executable. The RoboDojo environment argument may be a Conda environment name or its absolute environment-prefix path; use the prefix path when `conda` is not initialized in non-interactive shells. The pinned release manifest is [`scripts/hf_robodojo_checkpoints.json`](scripts/hf_robodojo_checkpoints.json). Set `STARVLA_HF_ROOT` to place the downloads on a shared filesystem. `STARVLA_HF_LOCAL_FILES_ONLY=1` disables network access. For a pre-materialized directory, set `STARVLA_HF_VERIFY_ONLY=1`. All three releases reference `Qwen/Qwen3-VL-4B-Instruct`; offline installations can set `STARVLA_BASE_VLM=/local/Qwen3-VL-4B-Instruct` without editing the pinned YAML. `STARVLA_HF_SKIP_WEIGHT_HASH=1` skips the full weight hash after checking file size, but should only be used after a successful verified download. The dedicated entry point is single-process and clears inherited torchrun/MPI rank variables before starting either side; otherwise a cluster login shell carrying, for example, `WORLD_SIZE=6` can make PI-v3 wait for five nonexistent evaluation ranks. Policy startup also defaults `OMP_NUM_THREADS` and `MKL_NUM_THREADS` to `STARVLA_CPU_THREADS=8`; this avoids oversubscribing high-core-count cluster nodes while still respecting either BLAS variable when it is already set.
+## 配置
 
-## Configuration
+检查 `deploy.yml` 的 `starvla_root`、`checkpoint_path`、`starvla_server_host`、`starvla_server_port`、
+`unnorm_key`、`use_ddim`、`num_ddim_steps`、`image_size`、`execute_horizon`、`include_state`、
+`require_runtime_contract`、`required_pi_v3_forward`。
+`execute_horizon` 是每个预测 chunk 实际执行的步数。
+`include_state: auto` 依次读取 `config.yaml`、`config.full.yaml` 的 `datasets.vla_data.include_state`，最后默认 false；
+显式布尔配置可覆盖，环境变量 `STARVLA_INCLUDE_STATE` 优先级最高。
 
-`deploy.yml` keys to check before evaluation: `starvla_root`, `checkpoint_path`, `starvla_server_host`, `starvla_server_port`, `unnorm_key`, `use_ddim`, `num_ddim_steps`, `image_size`, `execute_horizon` (number of actions executed before requesting a new predicted chunk), `include_state` (`auto` reads the checkpoint config; an explicit boolean overrides it), `require_runtime_contract` (rejects a server that cannot prove it applies the released checkpoint's RGB/state/action contract), and `required_pi_v3_forward` (set by the dedicated released-checkpoint entry point when the manifest requires a particular PI-v3 forward).
+| 环境变量 | 用途 |
+| --- | --- |
+| `STARVLA_EXECUTE_HORIZON` | 每个 chunk 执行步数 |
+| `STARVLA_IMAGE_SIZE` | adapter 输入图像大小 |
+| `STARVLA_INCLUDE_STATE` | 显式覆盖 checkpoint 的状态输入选择 |
+| `STARVLA_UNNORM_KEY` | 选择 normalization 统计键 |
+| `STARVLA_CKPT_PATH` / `STARVLA_ROOT` / `STARVLA_SERVER_PID` | 相关脚本的 checkpoint、源码与进程配置 |
 
-`include_state: auto` reads `datasets.vla_data.include_state` from `config.yaml`, then falls back to `config.full.yaml` and finally `false`. `STARVLA_INCLUDE_STATE` remains the highest-priority explicit override.
-
-Environment variables used by the adapter scripts:
-
-| Variable | Notes |
-|---|---|
-| `STARVLA_EXECUTE_HORIZON` | Overrides the number of actions executed from each predicted chunk. |
-| `STARVLA_IMAGE_SIZE` | Overrides the input image size passed to the adapter. |
-| `STARVLA_INCLUDE_STATE` | Explicitly overrides checkpoint-driven proprioceptive state selection. |
-| `STARVLA_UNNORM_KEY` | Selects the checkpoint normalization statistics. |
-| `STARVLA_CPU_THREADS` | Fallback CPU thread count for policy-process imports when OMP/MKL limits are unset (default: 8). |
-
-The scripts also read `STARVLA_CKPT_PATH`, `STARVLA_ROOT`, and `STARVLA_SERVER_PID`, plus the training overrides listed above.
+训练变量见训练章节，其他专用入口配置以脚本与发布清单为准。

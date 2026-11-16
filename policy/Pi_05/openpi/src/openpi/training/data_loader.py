@@ -143,16 +143,31 @@ def create_torch_dataset(
     if repo_id == "fake":
         return FakeDataset(model_config, num_samples=1024)
 
-    dataset_meta = lerobot_dataset.LeRobotDatasetMetadata(repo_id)
-    dataset = lerobot_dataset.LeRobotDataset(
-        data_config.repo_id,
-        delta_timestamps={
-            key: [t / dataset_meta.fps for t in range(action_horizon)] for key in data_config.action_sequence_keys
-        },
-        video_backend=data_config.video_backend,
-    )
+    # Drop whitespace inserted by a wrapped shell line, then split the list.
+    repo_ids = [part for part in "".join(repo_id.split()).split(",") if part]
+    if not repo_ids:
+        raise ValueError(f"Repo ID is empty: {repo_id!r}")
+    # fps is shared by the LIBERO subsets; a comma-separated repo_id loads them together.
+    dataset_meta = lerobot_dataset.LeRobotDatasetMetadata(repo_ids[0])
+    delta_timestamps = {
+        key: [t / dataset_meta.fps for t in range(action_horizon)] for key in data_config.action_sequence_keys
+    }
+    if len(repo_ids) == 1:
+        dataset = lerobot_dataset.LeRobotDataset(
+            repo_ids[0],
+            delta_timestamps=delta_timestamps,
+            video_backend=data_config.video_backend,
+        )
+    else:
+        dataset = lerobot_dataset.MultiLeRobotDataset(
+            repo_ids,
+            delta_timestamps=delta_timestamps,
+            video_backend=data_config.video_backend,
+        )
 
     if data_config.prompt_from_task:
+        if len(repo_ids) != 1:
+            raise ValueError("prompt_from_task only supports a single repo_id. Use the dataset task field instead.")
         dataset = TransformedDataset(dataset, [_transforms.PromptFromLeRobotTask(dataset_meta.tasks)])
 
     return dataset

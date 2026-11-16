@@ -15,6 +15,7 @@ env_gpu_id="${11}"
 policy_server_ip="${12:-localhost}"
 protocol="${13:-ws}"
 
+if [[ -z "${XPOLICYLAB_ENV_FACTORY:-}" ]]; then
 IFS='|' read -r action_type base_cfg < <(ADDITIONAL_INFO="${additional_info}" python - <<'PY'
 import os
 
@@ -28,12 +29,16 @@ print(fields.get("action_type", "") + "|" + fields.get("base_cfg", ""))
 PY
 )
 base_cfg="${base_cfg:-${BASE_CFG:-}}"
-
-echo -e "\033[31m[WARN] Real-world evaluation is not supported in the open-source release; attempting real env client startup anyway.\033[0m" >&2
+    echo -e "\033[31m[WARN] Using the legacy real-world client, which is not included in this checkout. Set XPOLICYLAB_ENV_FACTORY for the unified environment interface.\033[0m" >&2
+fi
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda deactivate || true
 conda activate "${eval_env_conda_env}"
+
+if [[ -n "${XPOLICYLAB_ENV_FACTORY:-}" ]]; then
+    exec bash "${root_dir}/XPolicyLab/utils/run_unified_env_client.sh" "$@"
+fi
 
 echo -e "\033[34m[CLIENT] Activating Conda environment: ${eval_env_conda_env}\033[0m"
 echo -e "\033[34m[CLIENT] Connecting to server ${policy_server_ip}:${free_port} (real env)...\033[0m"
@@ -51,6 +56,10 @@ if [[ -z "${base_cfg}" ]]; then
     exit 1
 fi
 
+if [[ ! -f "${root_dir}/src/task_env/real_env_client.py" ]]; then
+    echo "[ERROR] Missing legacy real client. Provide XPOLICYLAB_ENV_FACTORY=module:factory or install the parent workspace's src/task_env/real_env_client.py." >&2
+    exit 1
+fi
 python "${root_dir}/src/task_env/real_env_client.py" \
     --dataset_name "${bench_name}" \
     --task_name "${task_name}" \

@@ -19,6 +19,10 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 conda deactivate || true
 conda activate "${eval_env_conda_env}"
 
+if [[ -n "${XPOLICYLAB_ENV_FACTORY:-}" ]]; then
+    exec bash "${root_dir}/XPolicyLab/utils/run_unified_env_client.sh" "$@"
+fi
+
 echo -e "\033[34m[CLIENT] Activating Conda environment: ${eval_env_conda_env}\033[0m"
 echo -e "\033[34m[CLIENT] Connecting to server ${policy_server_ip}:${policy_server_port}...\033[0m"
 echo -e "\033[34m[CLIENT] Watch for green [CONNECTED]; yellow [RECONNECT] means the client is retrying.\033[0m"

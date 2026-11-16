@@ -102,3 +102,11 @@ class ModelTemplate:
         在单次 trial 结束后调用的 hook。
         """
         pass
+
+    def on_execution_feedback(self, feedback=None):
+        """Optional environment feedback after one executed action (not a prediction).
+
+        环境执行反馈，包含 terminated/truncated/success/reward/reason/info。
+        默认不处理；success=None 表示未知。该 hook 不负责规划、重试或真机控制。
+        """
+        pass

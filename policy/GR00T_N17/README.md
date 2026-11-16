@@ -1,80 +1,96 @@
 # GR00T_N17
 
-**Contributor:** RoboDojo Team | **Paper:** GR00T N1 / N1.5 open foundation model reports | **arXiv:** TBD | **Original code:** https://github.com/NVIDIA/Isaac-GR00T
+**原适配贡献者：** RoboDojo Team
 
-`GR00T_N17` adapts the NVIDIA Isaac GR00T N1.7 foundation model (base model `nvidia/GR00T-N1.7-3B`) to XPolicyLab/RoboDojo. Integration scripts live at this directory level; the vendored upstream implementation lives in `gr00t_n17/`, with adapter modality configs in `configs/` and helper scripts in `scripts/`.
+接入 NVIDIA Isaac GR00T N1.7，基础模型为 `nvidia/GR00T-N1.7-3B`。
+[上游代码](https://github.com/NVIDIA/Isaac-GR00T) vendored 在 `gr00t_n17/`，
+适配用的模态配置在 `configs/`，辅助脚本在 `scripts/`。
 
-Shared conventions — argument meanings, checkpoint naming, split-machine deployment, `EVAL_ENV_TYPE` — are documented in the [XPolicyLab README](../../README.md). Official results: [RoboDojo LeaderBoard](https://robodojo-benchmark.com/LeaderBoard).
+本轮按用户选择保留此 adapter，仅整理文档与静态检查，未在本机验证安装、训练或模型评测。
+公共参数与数据契约见[根 README](../../README.md)，能力状态见[交接页](../../docs/STATUS.md)。
 
-## Installation
+<a id="installation"></a>
 
-Read `INSTALLATION.md` before first use; it covers setup that `install.sh` cannot fully express, such as external checkpoints, system packages, manual fallback steps, and multi-environment runtime notes. This adapter uses a uv-managed environment.
+## 安装
+
+先读 [INSTALLATION.md](INSTALLATION.md)，其中包含系统依赖、外部权重、手动回退和多环境说明。
+本 adapter 使用 uv：
 
 ```bash
 cd XPolicyLab/policy/GR00T_N17
 bash install.sh
-source gr00t_n17/.venv/bin/activate  # or pass `uv` as <policy_env>
+source gr00t_n17/.venv/bin/activate
 ```
 
-## Data Processing
+<a id="data-processing"></a>
+
+## 数据处理
 
 ```bash
-cd XPolicyLab/policy/GR00T_N17
-export GR00T_LEROBOT_HOME=/path/to/lerobot/datasets  # required
+export GR00T_LEROBOT_HOME=/path/to/lerobot/datasets
 bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> [expert_data_num]
-
-# Example: convert stack_bowls demos for arx_x5 joint control
 bash process_data.sh RoboDojo stack_bowls arx_x5 joint
-
-# Example: name a 50-episode ablation; point GR00T_SRC_DATASET at the subset dataset first
 GR00T_SRC_DATASET=RoboDojo_sim_arx-x5_50ep bash process_data.sh RoboDojo stack_bowls_50ep arx_x5 joint
 ```
 
-The source dataset defaults to `RoboDojo_sim_arx-x5_v30` for `arx_x5` — a prepared LeRobot v3.0 export with the official keys ([Official LeRobot conversion](../../README.md#official-lerobot-conversion)); `process_data.sh` copies it and downgrades v3.0 to v2.1 with upstream LeRobot tooling, without touching keys or images. Other `env_cfg_type` values require setting `GR00T_SRC_DATASET` explicitly. `expert_data_num` is accepted for compatibility only — it is logged but not applied for episode subsetting; to ablate data scale, point `GR00T_SRC_DATASET` at a subset dataset and use a distinct `ckpt_name`.
+`arx_x5` 默认源数据为 `RoboDojo_sim_arx-x5_v30`，使用[官方 LeRobot 键](../../README.md#official-lerobot-conversion)。
+脚本复制准备好的 v3.0 数据，再用上游 LeRobot 工具降为 v2.1，不更改键或图像。
+其他机器人需显式设置 `GR00T_SRC_DATASET`。
+`expert_data_num` 仅为接口兼容而记录，不会执行 episode 筛选；数据规模实验需先准备子集，再使用独立 `ckpt_name`。
 
-## Training
+<a id="training"></a>
+
+## 训练
 
 ```bash
-cd XPolicyLab/policy/GR00T_N17
-export GR00T_LEROBOT_HOME=/path/to/lerobot/datasets  # required
+export GR00T_LEROBOT_HOME=/path/to/lerobot/datasets
+```
 
+```bash
 bash train.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id>
-
-# Example: train a cotrain run on GPU 0 (use gpu_id 0,1,2,3 for multi-GPU)
 bash train.sh RoboDojo cotrain arx_x5 joint 0 0
 ```
 
-Checkpoints land in `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`; at eval time `ckpt_name` may be the short run name, the full run-directory name, or a path to a checkpoint directory — or set `model_dir` in `deploy.yml` to a directory relative to `policy/GR00T_N17/`. The base models default to `nvidia/GR00T-N1.7-3B` and `nvidia/Cosmos-Reason2-2B` (override with `GR00T_BASE_MODEL` / `GR00T_COSMOS_MODEL`). The process count is inferred from a comma-separated `gpu_id` (`NUM_GPUS` override), and `GLOBAL_BATCH_SIZE` / `MAX_STEPS` can be exported to tune the run, e.g. `GLOBAL_BATCH_SIZE=640 MAX_STEPS=60000 bash train.sh RoboDojo cotrain arx_x5 joint 0 0,1,2,3,4,5,6,7`.
-
-## Evaluation
+Checkpoint 默认位于 `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`。
+评测的 `ckpt_name` 可传短运行名、完整运行目录名或 checkpoint 路径。
+基础模型默认 `nvidia/GR00T-N1.7-3B` 与 `nvidia/Cosmos-Reason2-2B`，
+可用 `GR00T_BASE_MODEL`、`GR00T_COSMOS_MODEL` 覆盖。
+进程数由逗号分隔的 GPU 列表推导，也可设置 `NUM_GPUS`；`GLOBAL_BATCH_SIZE`、`MAX_STEPS` 可控制训练预算。
+例如：
 
 ```bash
-cd XPolicyLab/policy/GR00T_N17
-bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <seed> \
-  <policy_gpu_id> <env_gpu_id> <policy_conda_env> <eval_env_conda_env>
-
-# Example: evaluate a trained cotrain checkpoint on stack_bowls
-bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0 0 0 <policy_conda_env> <eval_env_conda_env>
+GLOBAL_BATCH_SIZE=640 MAX_STEPS=60000 bash train.sh RoboDojo cotrain arx_x5 joint 0 0,1,2,3,4,5,6,7
 ```
 
-`EVAL_ENV_TYPE=debug` runs the offline wiring check (no simulator); leave it unset or set `EVAL_ENV_TYPE=sim` for RoboDojo simulation. For split-machine deployment via `setup_eval_policy_server.sh` / `setup_eval_env_client.sh`, follow the [Deployment Flow](../../README.md#-deployment-flow).
+<a id="evaluation"></a>
 
-## Configuration
+## 评测
 
-`deploy.yml` keys to check before evaluation: `embodiment_tag`, `checkpoint_num`, `model_dir` (optional checkpoint directory relative to `policy/GR00T_N17/`; when set, it bypasses `checkpoints/<ckpt_name>`), `cosmos_model_path` (Hugging Face repo id, or local Cosmos directory relative to `policy/GR00T_N17/`), `default_prompt`, `policy_uv_env_path`.
+```bash
+bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <seed> \
+  <policy_gpu_id> <env_gpu_id> <policy_env> <eval_env_conda_env>
+bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0 0 0 <policy_env> <eval_env_conda_env>
+```
 
-Environment variables used by the adapter scripts:
+`EVAL_ENV_TYPE=debug` 检查离线接线，仍需模型依赖和权重；不设置或设为 `sim` 时走仿真。
+分机运行见[部署流程](../../README.md#-deployment-flow)。
 
-| Variable | Notes |
-|---|---|
-| `GR00T_LEROBOT_HOME` | LeRobot dataset root used by `process_data.sh` and `train.sh` (required). |
-| `GR00T_SRC_DATASET` | Source dataset for data processing; defaults to `RoboDojo_sim_arx-x5_v30` for `arx_x5`. |
-| `GR00T_BASE_MODEL` | Base GR00T model path or Hugging Face id used by `train.sh`. |
-| `GR00T_COSMOS_MODEL` | Cosmos model path or Hugging Face id used by `train.sh`. |
+`policy_env` 可传 conda 环境名、`uv` 或 uv 项目路径。`model_dir` 也可指定相对本 adapter 的 checkpoint 目录。
 
-Additional optional overrides: `GR00T_ROOT`, `GR00T_VIDEO_BACKEND`.
+<a id="configuration"></a>
 
-## Notes
+## 配置
 
-- The policy-environment argument of the eval scripts accepts a conda env name, `uv`, or a uv project path.
-- For data-size ablations, create or select a subset source dataset with `GR00T_SRC_DATASET` and encode the subset in `ckpt_name` such as `stack_bowls_50ep`.
+检查 `deploy.yml` 的 `embodiment_tag`、`checkpoint_num`、`model_dir`、`cosmos_model_path`、
+`default_prompt`、`policy_uv_env_path`。`model_dir` 优先于普通 checkpoint 命名解析；
+`cosmos_model_path` 可为 Hugging Face ID 或相对本 adapter 的本地目录。
+
+| 环境变量 | 用途 |
+| --- | --- |
+| `GR00T_LEROBOT_HOME` | 必填，数据处理和训练的数据根目录 |
+| `GR00T_SRC_DATASET` | 源数据集名；arx_x5 默认 `RoboDojo_sim_arx-x5_v30` |
+| `GR00T_BASE_MODEL` / `GR00T_COSMOS_MODEL` | 训练使用的基础模型路径或 ID |
+| `NUM_GPUS` / `GLOBAL_BATCH_SIZE` / `MAX_STEPS` | 训练进程数、批量和步数 |
+| `GR00T_ROOT` / `GR00T_VIDEO_BACKEND` | 可选项目根目录与视频后端覆盖 |
+
+数据规模实验用 `GR00T_SRC_DATASET` 选择子集，并在 `ckpt_name` 标明，如 `stack_bowls_50ep`。

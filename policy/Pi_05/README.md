@@ -1,73 +1,101 @@
 # Pi_05
 
-**Contributor:** RoboDojo Team | **Paper:** Pi0.5 technical report | **arXiv:** TBD | **Original code:** https://github.com/Physical-Intelligence/openpi
+**原适配贡献者：** RoboDojo Team
+**论文：** π0.5 技术报告；论文链接尚未在此 adapter 补齐
+**上游代码：** https://github.com/Physical-Intelligence/openpi
 
-`Pi_05` adapts Physical Intelligence's π0.5 policy to XPolicyLab/RoboDojo through the uv-managed OpenPI stack. Integration scripts live at this directory level; the vendored upstream implementation lives in `openpi/`.
+本 adapter 通过 uv 管理的 OpenPI 接入 XPolicyLab / RoboDojo。
+适配脚本在本目录，上游源码在 `openpi/`。当前主线是接续已有 LIBERO 工作，
+原有训练代码修改与历史资产均保留；本轮未重训或验证真实仿真效果。
 
-Shared conventions — argument meanings, checkpoint naming, split-machine deployment, `EVAL_ENV_TYPE` — are documented in the [XPolicyLab README](../../README.md). Official results: [RoboDojo LeaderBoard](https://robodojo-benchmark.com/LeaderBoard).
+公共参数和数据契约见[根 README](../../README.md)，当前能力见[状态页](../../docs/STATUS.md)。
 
-## Installation
+<a id="installation"></a>
+
+## 安装
 
 ```bash
 cd XPolicyLab/policy/Pi_05
 bash install.sh
-source openpi/.venv/bin/activate  # OpenPI is uv-managed; there is no policy conda env
+source openpi/.venv/bin/activate
 ```
 
-`eval.sh` arg 9 is not a conda env: pass `uv` (uses `deploy.yml` `policy_uv_env_path`) or an explicit OpenPI project path.
+OpenPI 使用 uv；标准 `eval.sh` 的第 9 个参数传 `uv`（读取 `deploy.yml` 的 `policy_uv_env_path`），
+或显式 OpenPI 项目路径，而不是策略端 conda 环境名。
 
-## Data Processing
+<a id="data-processing"></a>
 
-Converts RoboDojo demonstrations into the LeRobot repo consumed by training. The dataset uses the official keys — `observation.state`, `action`, `observation.images.cam_high` / `cam_left_wrist` / `cam_right_wrist` ([official LeRobot conversion](../../README.md#official-lerobot-conversion)); the bundled script exists because conversion must run inside openpi's own pinned LeRobot environment, which sets the dataset version. The optional `expert_data_num` caps episodes for data conversion only (it is not part of checkpoint naming); the optional `raw_task_dirs` is a source task directory or comma-separated task list under `data/<bench_name>/` (defaults to `ckpt_name`). `raw_task_dirs` may also be passed directly as the 5th argument to write a differently named dataset from all of a task's demos, e.g. `bash process_data.sh RoboDojo stack_bowls_ablation arx_x5 joint stack_bowls`.
+## 数据处理
+
+RoboDojo 转换使用官方键：`observation.state`、`action`、
+`observation.images.cam_high` / `cam_left_wrist` / `cam_right_wrist`，
+见[官方 LeRobot 转换](../../README.md#official-lerobot-conversion)。
+附带转换脚本在 OpenPI 锁定的 LeRobot 环境中运行，导出版本以实际环境和数据 metadata 为准。
+当前本机 LeRobot 为 0.4.4，现有 LIBERO 导出为 v3.0。
+
+可选 `expert_data_num` 只限制转换 episode 数，不参与 checkpoint 命名。
+`raw_task_dirs` 是 `data/<bench_name>/` 下的源任务名或逗号分隔列表，默认等于 `ckpt_name`；
+也可直接作为第 5 个参数传入，为同一份原始数据生成不同名字的导出。
 
 ```bash
-cd XPolicyLab/policy/Pi_05
 bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> [expert_data_num] [raw_task_dirs]
-
-# Example: convert stack_bowls demos for arx_x5 joint control
 bash process_data.sh RoboDojo stack_bowls arx_x5 joint
-
-# Example: create a 50-episode ablation while reading from the original task data
 bash process_data.sh RoboDojo stack_bowls_50ep arx_x5 joint 50 stack_bowls
 ```
 
-## Training
+<a id="training"></a>
+
+## 训练
 
 ```bash
-cd XPolicyLab/policy/Pi_05
-bash train.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id>
-
-# Example: train a cotrain run on GPU 0 (comma-separated gpu_id for multi-GPU)
+bash train.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id> [OpenPI训练参数...]
 bash train.sh RoboDojo cotrain arx_x5 joint 0 0
 ```
 
-Checkpoints land in `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`; at eval time `ckpt_name` may be the short run name (auto-combined into that directory name), the full run-directory name, or a path to a checkpoint directory. By default training reads the LeRobot repo produced by `process_data.sh` (`<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>`); override with `OPENPI_LEROBOT_REPO_ID` when reusing an existing dataset. `train.sh` sets `fsdp_devices=1` for one visible GPU and `2` for multi-GPU by default (override with `OPENPI_FSDP_DEVICES`).
+Checkpoint 写入 `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/`。
+默认保护已有目录；接续同名运行显式添加 `--resume`，确实要清空替换时才添加 `--overwrite`。
+额外尾参转发给 OpenPI。数据 repo 默认是 `<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>`。
+单卡默认 `fsdp_devices=1`，多卡默认 `2`，可通过环境变量覆盖。
 
-## Evaluation
+### LIBERO 本地配方
+
+`pi05_libero` 对两个 expert 使用 LoRA，并联合读取四个本地数据集。
+输入键为 `observation.images.image`、`observation.images.wrist_image`、`observation.state`、
+`action` 和 `task`，与三相机 RoboDojo 配方不同。
+
+数据、归一化、训练和运行命令统一维护在 [Pi_05 / LIBERO 手册](../../docs/reproduction/pi05-libero.md)。
+`serve_libero.sh` / `eval_libero.sh` 使用 **OpenPI 原生 websocket 协议**，不经过 XPolicyLab `model.py`；
+需要现有外部 LIBERO client。两个脚本都有 `--help`，checkpoint 和 client 位置必须显式配置。
+该原生配方不能直接当作标准 adapter 的 LIBERO 支持。
+
+<a id="evaluation"></a>
+
+## 标准评测
 
 ```bash
-cd XPolicyLab/policy/Pi_05
 bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <seed> \
   <policy_gpu_id> <env_gpu_id> <policy_uv_env> <eval_env_conda_env>
-
-# Example: evaluate a trained cotrain checkpoint on stack_bowls
 bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0 0 0 uv <eval_env_conda_env>
 ```
 
-`EVAL_ENV_TYPE=debug` runs the offline wiring check (no simulator); leave it unset or set `EVAL_ENV_TYPE=sim` for RoboDojo simulation. For split-machine deployment via `setup_eval_policy_server.sh` / `setup_eval_env_client.sh`, follow the [Deployment Flow](../../README.md#-deployment-flow).
+`ckpt_name` 可用短运行名、完整运行目录名或 checkpoint 路径。
+`EVAL_ENV_TYPE=debug` 做离线接线检查；不设置或设为 `sim` 时走仿真。
+分机运行见[部署流程](../../README.md#-deployment-flow)。标准路径仍需父工作区 `env_cfg/`。
 
-## Configuration
+<a id="configuration"></a>
 
-`deploy.yml` keys to check before evaluation: `checkpoint_num`, `result_dir`, `obs_transform_pipeline`, `policy_uv_env_path`, `train_config_name` (must match the config used by `train.sh`), `repo_id`.
+## 配置
 
-Environment variables used by the adapter scripts:
+检查 `deploy.yml` 的 `checkpoint_num`、`result_dir`、`obs_transform_pipeline`、
+`policy_uv_env_path`、`train_config_name`、`repo_id`。训练和评测必须使用相符的配置与 normalization stats。
 
-| Variable | Notes |
-|---|---|
-| `OPENPI_LEROBOT_REPO_ID` | Overrides the LeRobot repo id used by `train.sh`; defaults to `<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>`. |
-| `OPENPI_FSDP_DEVICES` | Overrides the FSDP device count passed to OpenPI training. |
-| `OPENPI_TRAIN_CONFIG_NAME` | Overrides the training config; defaults to `pi05_base_aloha_full_sim_arx-x5_seed_0`. |
-| `OPENPI_DATA_MODE` | Data-processing mode passed to `openpi/scripts/process_data.py`; defaults to `image`. |
-| `OPENPI_LOCAL_CACHE_ROOT` | Per-host local cache root for the HF datasets / JAX compilation caches; defaults to `/tmp/openpi-cache-$(hostname)`. |
+| 环境变量 | 用途 / 默认 |
+| --- | --- |
+| `OPENPI_LEROBOT_REPO_ID` | 训练数据 repo，默认由 bench/ckpt/robot/action 拼接 |
+| `OPENPI_FSDP_DEVICES` | 覆盖 FSDP 设备数 |
+| `OPENPI_TRAIN_CONFIG_NAME` | 训练配置，默认 `pi05_base_aloha_full_sim_arx-x5_seed_0` |
+| `OPENPI_DATA_MODE` | 转换模式，默认 `image` |
+| `OPENPI_LOCAL_CACHE_ROOT` | HF/JAX 本机缓存根，默认 `/tmp/openpi-cache-$(hostname)` |
+| `PI05_BASE_PARAMS` | 本地 LIBERO 配方的初始权重；训练前显式设置以保证可移植 |
 
-`OPENPI_ROOT` and `OPENPI_SRC` are additional overrides consumed by the local scripts.
+`OPENPI_ROOT`、`OPENPI_SRC` 由相关本地脚本消费；原生 LIBERO wrapper 的变量与默认值见[手册](../../docs/reproduction/pi05-libero.md)。

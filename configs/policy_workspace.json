@@ -1,0 +1,12 @@
+{
+  "active_policies": [
+    "GR00T_N17",
+    "TinyVLA",
+    "FastWAM",
+    "LingBot_VA",
+    "LingBot_VLA",
+    "StarVLA",
+    "Pi_05",
+    "demo_policy"
+  ]
+}

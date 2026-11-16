@@ -1,10 +1,15 @@
 # Contributing a Policy to XPolicyLab
 
-This page is the submission standard for `policy/<POLICY>/` adapters: what a complete adapter contains, how to test it, and what a PR must include. For repo-wide concepts and workflows, see the [README](README.md) ([中文](README_zh.md)). Root `README.md` and `README_zh.md` must stay in sync — update both in the same change.
+This page is the submission standard for `policy/<POLICY>/` adapters: what a complete adapter contains, how to test it, and what a PR must include. For repo-wide concepts and workflows, see the [中文 README](README.md). In this research workspace, project-owned READMEs use Chinese; `README_zh.md` is a compatibility entry. Vendored upstream documentation retains its original language.
 
 Two bundled Agent Skills automate most of this: `xpolicylab-model-integration` builds an adapter, `xpolicylab-adapter-check` audits one before a PR. They live in `.agents/skills/`, which `.cursor/skills` and `.claude/skills` symlink to, so Cursor, Claude Code and Codex all pick them up. [AGENTS.md](AGENTS.md) distills this page into the always-on rules every agent must follow; `CLAUDE.md` just imports it. See [Using a coding agent](#using-a-coding-agent).
 
 ## Getting started
+
+For this research workspace's infra development and record keeping, start with
+[docs/README.md](docs/README.md), [current status](docs/STATUS.md), and
+[development conventions](docs/development.md). Policy-specific submission requirements below
+continue to apply; the default working tree exposes a [small policy set](policy/README.md).
 
 The fastest route is to copy the reference adapter, keep the XPolicyLab boundary small, and debug before touching a simulator:
 

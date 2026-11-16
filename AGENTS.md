@@ -9,9 +9,30 @@ package inside a parent workspace — never as the top-level project.
 - Two skills carry the end-to-end workflows — `xpolicylab-model-integration` (build an adapter) and
   `xpolicylab-adapter-check` (audit one before a PR). They live in `.agents/skills/`, which
   `.cursor/skills` and `.claude/skills` symlink to, so Cursor, Claude Code and Codex all load them.
-- Root docs stay bilingual: when you edit `README.md`, update `README_zh.md` in the same change (and
-  the reverse). Keep structure, anchors, code blocks, and tables aligned; translate prose only.
-  English remains the source of truth on conflict.
+- Project-owned documentation and active adapter READMEs use Chinese. `README.md` is the source
+  of truth; `README_zh.md` is a short compatibility entry. Preserve old English section anchors
+  where other adapters link to them. Keep third-party vendored documentation in its original language.
+
+## Research infra workflow
+
+- Current scope is a usable, reproducible infra. Do not introduce Harness or memory components
+  until the user explicitly starts that phase.
+- Start with [docs/STATUS.md](docs/STATUS.md), then [docs/README.md](docs/README.md) and the task's
+  relevant adapter/runbook. Architecture: [docs/architecture.md](docs/architecture.md).
+- Follow [docs/development.md](docs/development.md). Preserve pre-existing local edits and assets.
+  For substantial tasks, update the status and add/update a concise worklog with commands actually
+  run and their results. Record training/evaluation separately under `experiments/`.
+- Default policy view: `GR00T_N17`, `TinyVLA`, `FastWAM`, `LingBot_VA`, `LingBot_VLA`, `StarVLA`,
+  `Pi_05`, `demo_policy` (configured in `configs/policy_workspace.json`). Other adapters remain in Git; use
+  `python3 scripts/policy_workspace.py focus <POLICY>` to include a reference, or `full` to restore
+  all. Do not treat sparse files as deletions or traverse the whole policy zoo by default.
+- Run `python3 scripts/check_workspace.py` and relevant checks before delivery. A static pass is
+  not a model/debug/simulator pass. State unverified items explicitly.
+- Keep model-specific instructions in the adapter README; use links instead of copying recipes.
+  Prefer local Markdown for this repository's docs, worklogs, and experiment records.
+- Simulator/hardware integrations use [environment/README.md](environment/README.md). Keep task
+  success distinct from termination/truncation; require explicit action/feedback mappings. The public
+  runner currently supports one environment; factory availability is not proof of backend validation.
 
 The rules below apply to every change in this repo. Their rationale is in CONTRIBUTING.md.
 

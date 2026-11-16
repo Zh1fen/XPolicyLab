@@ -5,6 +5,7 @@ from collections.abc import Sequence
 import dataclasses
 import difflib
 import logging
+import os
 import pathlib
 from typing import Any, Literal, Protocol, TypeAlias
 
@@ -307,15 +308,17 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
         # For your own dataset, first figure out what keys your environment passes to the policy server
         # and then modify the mappings below so your dataset's keys get matched to those target keys.
         # The repack transform simply remaps key names here.
+        # Local LeRobot v2.1 exports store images under observation.images.* and the
+        # language string on "task". LiberoInputs still consumes observation/* keys.
         repack_transform = _transforms.Group(
             inputs=[
                 _transforms.RepackTransform(
                     {
-                        "observation/image": "image",
-                        "observation/wrist_image": "wrist_image",
-                        "observation/state": "state",
-                        "actions": "actions",
-                        "prompt": "prompt",
+                        "observation/image": "observation.images.image",
+                        "observation/wrist_image": "observation.images.wrist_image",
+                        "observation/state": "observation.state",
+                        "actions": "action",
+                        "prompt": "task",
                     }
                 )
             ]
@@ -361,6 +364,7 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
             repack_transforms=repack_transform,
             data_transforms=data_transforms,
             model_transforms=model_transforms,
+            action_sequence_keys=("action",),
         )
 
 
@@ -586,6 +590,8 @@ class TrainConfig:
     log_interval: int = 100
     # How often (in steps) to save checkpoints.
     save_interval: int = 1000
+    # How many of the most recent checkpoints to keep. Checkpoints on keep_period are extra.
+    max_to_keep: int = 1
     # If set, any existing checkpoints matching step % keep_period == 0 will not be deleted.
     keep_period: int | None = 5000
 
@@ -761,6 +767,51 @@ _CONFIGS = [
         ),
         num_train_steps=30_000,
         batch_size=64,
+    ),
+    # Local LeRobot v2.1 LIBERO subsets under $HF_LEROBOT_HOME.
+    # Default weights: /home/zhanyifeng/workspace/models/pi05_base/params
+    # Override with PI05_BASE_PARAMS. Comma-separated repo_id is loaded together.
+    # LoRA on both experts: a full Adam state for the 3B model does not fit 4x24GB.
+    TrainConfig(
+        name="pi05_libero",
+        model=(
+            _pi05_libero_model := pi0_config.Pi0Config(
+                pi05=True,
+                action_horizon=10,
+                paligemma_variant="gemma_2b_lora",
+                action_expert_variant="gemma_300m_lora",
+            )
+        ),
+        freeze_filter=_pi05_libero_model.get_freeze_filter(),
+        ema_decay=None,
+        data=LeRobotLiberoDataConfig(
+            repo_id=",".join(
+                [
+                    "libero_spatial_no_noops_1.0.0_lerobot",
+                    "libero_object_no_noops_1.0.0_lerobot",
+                    "libero_goal_no_noops_1.0.0_lerobot",
+                    "libero_10_no_noops_1.0.0_lerobot",
+                ]
+            ),
+            assets=AssetsConfig(asset_id="libero"),
+            base_config=DataConfig(prompt_from_task=False),
+            extra_delta_transform=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            os.environ.get(
+                "PI05_BASE_PARAMS",
+                "/home/zhanyifeng/workspace/models/pi05_base/params",
+            )
+        ),
+        # 4x 24GB. The batch is split across every visible GPU, so 4 is one example per 3090.
+        # train.sh still sets fsdp_devices=2 unless OPENPI_FSDP_DEVICES is overridden.
+        batch_size=4,
+        num_workers=2,
+        num_train_steps=30_000,
+        # Save every 1000 steps and keep only the two newest. No extra 5000-step archives.
+        max_to_keep=2,
+        keep_period=None,
+        wandb_enabled=False,
         lr_schedule=_optimizer.CosineDecaySchedule(
             warmup_steps=1_000,
             peak_lr=5e-5,

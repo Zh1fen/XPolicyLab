@@ -82,7 +82,7 @@ if [[ "${eval_env_mode}" == "debug" ]]; then
 elif [[ "${eval_env_mode}" == "sim" ]]; then
     bash "${UTILS_DIR}/run_sim_env_client.sh" "${COMMON_ARGS[@]}" "${protocol}"
 elif [[ "${eval_env_mode}" == "real_world" ]]; then
-    echo -e "\033[31m[WARN] EVAL_ENV_TYPE=real: real-world evaluation is not supported in the open-source release; continuing to real env client.\033[0m" >&2
+    echo "[CLIENT] Real environment: factory=${XPOLICYLAB_ENV_FACTORY:-legacy external client}"
     bash "${UTILS_DIR}/run_real_env_client.sh" "${COMMON_ARGS[@]}" "${protocol}"
 else
     echo "[ERROR] Unknown eval env mode: ${eval_env_mode}" >&2

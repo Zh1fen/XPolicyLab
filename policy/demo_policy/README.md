@@ -1,58 +1,68 @@
 # demo_policy
 
-**Contributor:** RoboDojo Team | **Paper:** Not applicable — XPolicyLab demo adapter | **arXiv:** Not applicable | **Original code:** Not applicable
+**原适配贡献者：** RoboDojo Team；本目录是 XPolicyLab 自带的最小 adapter，无模型论文或外部权重。
 
-`demo_policy` is the minimal reference adapter for checking policy-server / environment-client wiring. It returns zero actions with the correct action keys and dimensions; it does not train a real model or load a checkpoint. `process_data.sh` and `train.sh` are stubs that only demonstrate the standard naming conventions.
+用于检查策略服务与环境客户端的接线。它按机器人维度生成零动作，不能用来完成真实任务。
+`process_data.sh` 和 `train.sh` 是展示命名约定的占位脚本。
 
-Shared conventions — argument meanings, checkpoint naming, split-machine deployment, `EVAL_ENV_TYPE` — are documented in the [XPolicyLab README](../../README.md). Official results: [RoboDojo LeaderBoard](https://robodojo-benchmark.com/LeaderBoard).
+公共参数和模型接入规范见[根 README](../../README.md) 与 [CONTRIBUTING](../../CONTRIBUTING.md)。
 
-## Installation
+<a id="installation"></a>
 
-Installs XPolicyLab in editable mode so the policy server can import `XPolicyLab.policy.demo_policy` and the websocket modules:
+## 安装与公共链路检查
+
+传统脚本按 conda 环境运行：
 
 ```bash
 cd XPolicyLab/policy/demo_policy
 bash install.sh
-conda activate <policy_env>  # e.g. demo-policy
+conda activate <policy_env>
 ```
 
-## Data Processing
+如果只检查公共 infra，可以从仓库根目录使用安装了根项目依赖的 Python：
 
-Stub — prints the standard output naming convention without converting data. The optional trailing argument is an episode-limit placeholder:
+```bash
+python scripts/smoke_infra.py
+```
+
+该命令使用临时父工作区配置，验证真实 ws 服务的 reset、单条/批量观测与动作、编码图像路径；
+结束后清理临时配置和服务进程，无需真实 benchmark、模型权重或 GPU。
+
+<a id="data-processing"></a>
+
+## 数据处理
+
+占位入口，仅输出标准命名，不转换数据。可选尾参是示范 episode 限制的占位参数。
 
 ```bash
 bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> [expert_data_num]
-
-# Example
 bash process_data.sh RoboDojo stack_bowls arx_x5 joint
 ```
 
-## Training
+<a id="training"></a>
 
-Stub — creates the conventional checkpoint directory `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/` and prints where real training code should write:
+## 训练
+
+占位入口，创建 `checkpoints/<bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>/` 并说明写入位置。
+评测不读取该目录。
 
 ```bash
 bash train.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id>
-
-# Example
 bash train.sh RoboDojo cotrain arx_x5 joint 0 0
 ```
 
-`demo_policy` does not read this directory during evaluation; real adapters load weights from their own checkpoint path.
+<a id="evaluation"></a>
 
-## Evaluation
+## 标准评测脚本
+
+此路径还需要父工作区 `env_cfg/` 与 conda 两端环境；本轮的独立 CPU smoke 不依赖它们。
 
 ```bash
-cd XPolicyLab/policy/demo_policy
 bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <seed> \
   <policy_gpu_id> <env_gpu_id> <policy_conda_env> <eval_env_conda_env>
-
-# Example: offline shape/IO smoke check
 EVAL_ENV_TYPE=debug bash eval.sh RoboDojo stack_bowls demo arx_x5 joint 0 0 0 <policy_conda_env> <eval_env_conda_env>
 ```
 
-`EVAL_ENV_TYPE=debug` runs the offline wiring check (no simulator); leave it unset or set `EVAL_ENV_TYPE=sim` for RoboDojo simulation. For split-machine deployment via `setup_eval_policy_server.sh` / `setup_eval_env_client.sh`, follow the [Deployment Flow](../../README.md#-deployment-flow).
-
-## Notes
-
-- When replacing these stubs with a real policy, keep `ckpt_name` stable between data processing, training, and evaluation.
+`DEBUG_OBS_ENCODED=1` 可额外检查编码图像输入；仿真需不设置 `EVAL_ENV_TYPE` 或设为 `sim`。
+分机运行见[部署流程](../../README.md#-deployment-flow)。
+改造为真实策略时，数据处理、训练和评测保持相同的 `ckpt_name`。

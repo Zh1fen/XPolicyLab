@@ -2,9 +2,9 @@
 
 <h1>XPolicyLab</h1>
 
-<p>English | <a href="README_zh.md">简体中文</a></p>
+<p>中文文档 · <a href="docs/README.md">研究 infra 导航</a></p>
 
-<p><strong>A Unified Standard and Open Ecosystem for Robot Policy Evaluation and Deployment</strong></p>
+<p><strong>面向机器人策略评测与部署的统一标准与开放生态</strong></p>
 
 <p>
 <a href="https://xpolicylab.github.io/">Website</a> |
@@ -14,102 +14,125 @@
 <a href="https://robotwin-platform.github.io/leaderboard">RoboTwin Leaderboard</a>
 </p>
 
-<p>🏆 <strong>Best Tool Paper Award</strong> · IROS 2026, Pittsburgh<br/>
-Building Scalable Infrastructure for Robot Learning Workshop, awarded to all XPolicyLab contributors.</p>
+<p>🏆 <strong>最佳工具论文奖</strong> · IROS 2026, Pittsburgh<br/>
+Building Scalable Infrastructure for Robot Learning Workshop，授予全体 XPolicyLab 贡献者。</p>
 
 <img src="assets/teaser.png" alt="XPolicyLab overview" width="100%"/>
 
-<p><em>Connecting N policies to M evaluation environments — from O(N×M) down to O(N+M).</em></p>
+<p><em>把 N 个策略接到 M 个评测环境 —— 从 O(N×M) 降到 O(N+M)。</em></p>
 
 </div>
 
-XPolicyLab is the shared layer between policy code and evaluation environments. Keep each model's dependencies, checkpoints, and training recipes under `policy/<POLICY>/`; XPolicyLab handles the parts that are boring but easy to get wrong — serving, observation/action contracts, and eval wiring. As of November 2026, the ecosystem integrates **77 robot policies** spanning VLA, world-action, imitation-learning, and memory-augmented families, and the same adapters serve RoboTwin, RoboDojo simulation, and standardized real-robot evaluation.
-
-Start here for repo-level concepts and integration steps. For install commands, checkpoint layout, and training details, jump to that policy's README — it is the source of truth for its model.
-
-## 📚 Contents
-
-- [What XPolicyLab Enables](#-what-xpolicylab-enables)
-- [Supported Benchmarks And Infrastructure](#-supported-benchmarks-and-infrastructure)
-- [Integrated Policies](#-integrated-policies)
-- [Framework Overview](#-framework-overview)
-- [Quick Start](#-quick-start)
-- [Common Workflow](#-common-workflow)
-- [Deployment Flow](#-deployment-flow)
-- [Standard Data Formats](#-standard-data-formats)
-  - [Decode only through `decode_image_bit`](#decode-only-through-decode_image_bit)
-  - [Official LeRobot conversion](#official-lerobot-conversion)
-- [Data And Checkpoints](#-data-and-checkpoints)
-- [Add Your Own Policy](#-add-your-own-policy)
-- [Coding Agents](#-coding-agents)
-- [Citation](#-citation)
-- [Contact](#-contact)
 
 
+XPolicyLab 是策略代码与评测环境之间的共享层。每个模型的依赖、权重与训练配方放在 `policy/<POLICY>/`；XPolicyLab 负责那些枯燥但容易出错的部分 —— 服务化、观测/动作契约，以及评测接线。截至 2026 年 11 月，生态已接入 **77 个机器人策略**，覆盖 VLA、world-action、模仿学习与记忆增强等家族；同一套 adapter 可服务 RoboTwin、RoboDojo 仿真，以及标准化真机评测。
 
-## 🚀 What XPolicyLab Enables
+仓库级概念与接入步骤从本文开始。安装命令、权重布局与训练细节以各策略自己的 README 为准。
 
-- **Environment isolation**: run the policy model in its own conda/uv environment while the simulator, benchmark, or robot client runs separately.
-- **Remote deployment**: connect the policy server and environment client through websocket, either on one machine or across machines.
-- **A common adapter contract**: use the same high-level lifecycle for installation, data conversion, training, serving, and evaluation.
-- **A large policy zoo**: reuse adapters for VLA/WAM policies, imitation-learning baselines, and reference templates.
-- **Benchmark and infra integration**: mount XPolicyLab into benchmark or simulator workspaces without coupling policy code to one environment.
+<a id="research-workspace"></a>
+
+## 研究工作区
+
+当前 checkout 正在整理为可复现的科研 infra。请从
+[文档索引](docs/README.md)、[当前状态](docs/STATUS.md) 和
+[开发规范](docs/development.md) 开始。默认工作区保留 `GR00T_N17`、`TinyVLA`、`FastWAM`、
+`LingBot_VA`、`LingBot_VLA`、`StarVLA`、`Pi_05`、`demo_policy`；上游的其他 adapter 仍保存在 Git 中，可
+[按需恢复](policy/README.md)。这是本地稀疏视图；新 clone 后运行
+`python3 scripts/policy_workspace.py focus` 即可应用。模型与仿真效果需要单独验证。
+
+仿真与未来真机的公共接入见[统一环境接口](environment/README.md)，包括 reset、动作执行、
+状态反馈与停止回调。可先运行 `python3 scripts/run_mock_episode.py`，无需模型或硬件。
+真实 benchmark、SDK 和批量路径的联调状态以[当前状态](docs/STATUS.md)为准。
+
+<a id="-contents"></a>
+
+## 📚 目录
+
+- [研究工作区](#research-workspace)
+- [XPolicyLab 能做什么](#-xpolicylab-能做什么)
+- [已支持的 Benchmark 与基础设施](#-已支持的-benchmark-与基础设施)
+- [已接入策略](#-已接入策略)
+- [框架概览](#-框架概览)
+- [快速开始](#-快速开始)
+- [通用工作流](#-通用工作流)
+- [部署流程](#-部署流程)
+- [标准数据格式](#-标准数据格式)
+  - [图像解码只能走 `decode_image_bit`](#图像解码只能走-decode_image_bit)
+  - [官方 LeRobot 转换](#官方-lerobot-转换)
+- [数据与 Checkpoint](#-数据与-checkpoint)
+- [接入你自己的策略](#-接入你自己的策略)
+- [编程 Agent](#-编程-agent)
+- [引用](#-引用)
+- [联系方式](#-联系方式)
 
 
 
-## 🌐 Supported Benchmarks And Infrastructure
+<a id="-what-xpolicylab-enables"></a>
 
-XPolicyLab is benchmark-agnostic: any benchmark, simulator, or real-robot setup can plug in as an environment client against the same policy-side interface — one adapter per policy, one client per environment. The benchmarks below are already integrated; the RoboDojo and RoboTwin official leaderboards are powered by XPolicyLab submissions.
+## 🚀 XPolicyLab 能做什么
+
+- **环境隔离**：策略模型跑在自己的 conda/uv 环境里，仿真器、benchmark 或机器人客户端单独运行。
+- **远程部署**：策略 server 与环境 client 通过 websocket 连接，可同机也可跨机。
+- **统一 adapter 契约**：安装、数据转换、训练、服务化、评测共用同一套高层生命周期。
+- **大规模策略库**：复用 VLA/WAM、模仿学习基线与参考模板的 adapter。
+- **Benchmark / 基础设施集成**：把 XPolicyLab 挂进 benchmark 或仿真工作区，而不把策略代码绑死在某一个环境上。
+
+
+
+<a id="-supported-benchmarks-and-infrastructure"></a>
+
+## 🌐 已支持的 Benchmark 与基础设施
+
+XPolicyLab 与具体 benchmark 解耦：任意 benchmark、仿真器或真机方案都可以作为环境 client，挂到同一套策略侧接口上 —— 每个策略一个 adapter，每个环境一个 client。下列 benchmark 均已接入；RoboDojo 与 RoboTwin 的官方排行榜由 XPolicyLab 提交驱动。
 
 <div align="center">
 <img src="assets/benchmarks.png" alt="Cross-platform evaluation through XPolicyLab" width="70%"/>
-<p><em>Cross-platform evaluation through a shared codebase and standardized serving interface.</em></p>
+<p><em>通过共享代码库与标准化服务接口做跨平台评测。</em></p>
 </div>
 
 **Benchmarks**
 
-- **[RoboDojo](https://github.com/RoboDojo-Benchmark/RoboDojo)**: simulator-backed evaluation and RoboDojo-format data exports. The [RoboDojo Leaderboard](https://robodojo-benchmark.com/LeaderBoard) covers 42 simulation tasks across five capability dimensions (Generalization, Precision, Long-Horizon, Memory, Open) plus 18 real-robot tasks on three bimanual embodiments.
-- **[RoboTwin](https://github.com/RoboTwin-Platform/RoboTwin)**: benchmark and data source through policy-specific adapters and conversion scripts. The [RoboTwin 2.0 Leaderboard](https://robotwin-platform.github.io/leaderboard) covers bimanual manipulation across 50 tasks under clean and randomized settings.
-- **[RMBench](https://github.com/RoboTwin-Platform/RMBench)**: memory-dependent manipulation benchmark built on RoboTwin 2.0, with nine dual-arm tasks spanning levels of task memory complexity ([paper](https://arxiv.org/abs/2603.01229), [website](https://rmbench.github.io/)). Its reference policy is integrated as [Mem-0](policy/Mem_0/README.md).
+- **[RoboDojo](https://github.com/RoboDojo-Benchmark/RoboDojo)**：基于仿真器的评测，以及 RoboDojo 格式数据导出。[RoboDojo Leaderboard](https://robodojo-benchmark.com/LeaderBoard) 覆盖五个能力维度（Generalization、Precision、Long-Horizon、Memory、Open）上的 42 个仿真任务，以及三套双臂本体上的 18 个真机任务。
+- **[RoboTwin](https://github.com/RoboTwin-Platform/RoboTwin)**：通过策略专用 adapter 与转换脚本作为 benchmark 与数据源。[RoboTwin 2.0 Leaderboard](https://robotwin-platform.github.io/leaderboard) 覆盖干净与随机设置下 50 个双臂操作任务。
+- **[RMBench](https://github.com/RoboTwin-Platform/RMBench)**：基于 RoboTwin 2.0 的记忆依赖操作 benchmark，九个双臂任务覆盖不同任务记忆复杂度（[论文](https://arxiv.org/abs/2603.01229)，[网站](https://rmbench.github.io/)）。其参考策略已接入为 [Mem-0](policy/Mem_0/README.md)。
 
-**Infrastructure**
+**基础设施**
 
-- **[RLinf](https://github.com/RLinf/RLinf)** *(coming soon)*: infrastructure target for policy development and deployment workflows.
-- **StarVLA**: infrastructure and policy stack; see [policy/StarVLA](policy/StarVLA/README.md).
-
-
-
-## 🧭 Integrated Policies
-
-77 policies are currently integrated, spanning VLA, world-action, imitation-learning, and memory-augmented families, plus [demo_policy](policy/demo_policy/README.md) as the minimal reference adapter. Top-level adapters live in `policy/`; each policy README documents that model's paper/repo link, environment, data format, training entrypoint, and checkpoint layout.
+- **[RLinf](https://github.com/RLinf/RLinf)** *（即将支持）*：策略开发与部署工作流的基础设施目标。
+- **StarVLA**：基础设施与策略栈；见 [policy/StarVLA](policy/StarVLA/README.md)。
 
 
-| Policy                                   | Policy                                               | Policy                                      | Policy                                                     | Policy                                                         | Policy                                            |
-| ---------------------------------------- | ---------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------- |
-| [A1](policy/A1/README.md)                | [AHA-WAM](policy/AHA_WAM/README.md)                  | [ABot-M0](policy/Abot_M0/README.md)         | [Being-H05](policy/Being_H05/README.md)                    | [DM0](policy/Dexbotic_DM0/README.md)                           | [Dexora-1B](policy/Dexora_1B/README.md)           |
-| [DreamZero](policy/DreamZero/README.md)  | [EventVLA](policy/EventVLA/README.md)                | [FastWAM](policy/FastWAM/README.md)         | [G0](policy/GalaxeaVLA/README.md)                          | [G0.5](policy/G05/README.md)                                   | [GO-1](policy/GO1/README.md)                      |
-| [GR00T-N1.7](policy/GR00T_N17/README.md) | [GigaWorld-Policy](policy/GigaWorldPolicy/README.md) | [H-RDT](policy/H_RDT/README.md)             | [Hy-Embodied-0.5-VLA](policy/Hy_Embodied_05_VLA/README.md) | [InternVLA-A1](policy/InternVLA_A1/README.md)                  | [InternVLA-A1.5](policy/InternVLA_A1_5/README.md) |
-| [LDA-1B](policy/LDA_1B/README.md)        | [LingBot-VA](policy/LingBot_VA/README.md)            | [LingBot-VLA](policy/LingBot_VLA/README.md) | [Meituan-Robotics-0](policy/Meituan_Robotics_0/README.md)  | [Mem-0](policy/Mem_0/README.md)                                | [MolmoAct2](policy/MolmoAct2/README.md)           |
-| [UniWAM](policy/UniWAM/README.md)      | [OpenDM](policy/OpenDM/README.md)                    | [OpenVLA-OFT](policy/OpenVLA_OFT/README.md) | [OpenWAM](policy/OpenWAM/README.md)                        | [π0](policy/Pi_0/README.md)                                    | [π0.5](policy/Pi_05/README.md)                    |
-| [π0-Fast](policy/Pi_0_Fast/README.md)    | [RDT-1B](policy/RDT_1B/README.md)                    | [RISE](policy/RISE/README.md)               | [SmolVLA](policy/SmolVLA/README.md)                        | [Spatial Forcing](policy/Spatial_Forcing/README.md)            | [Spirit v1.5](policy/Spirit_v15/README.md)        |
-| [TinyVLA](policy/TinyVLA/README.md)      | [X-VLA](policy/X_VLA/README.md)                      | [X-WAM](policy/X_WAM/README.md)             | [Xiaomi-Robotics-0](policy/Xiaomi_Robotics_0/README.md)    | [Xiaomi-Robotics-1 (XR-1)](policy/Xiaomi_Robotics_1/README.md) | [StarVLA](policy/StarVLA/README.md)               |
-| [ACT](policy/ACT/README.md) | [DP](policy/DP/README.md) | [Evo-1](policy/Evo_1/README.md) | [InternW0_delta](policy/InternW0_delta/README.md) | [KinRT](policy/KinRT/README.md) | [PatchWAM-Lite](policy/PatchWAM/README.md) |
-| [Awomo-0.5](policy/Awomo05/README.md) | [MoPA](policy/MoPA/README.md) | [PhysicalRSI](policy/PhysicalRSI/README.md) | [Simate-beta](policy/Simate_beta/README.md) | [SimpleMemVLA](policy/SimpleMemVLA/README.md) | [WorldScape Policy 2.0](policy/WorldScape_Policy_2/README.md) |
-| [GPT-6-Astra-Direct-EEF](policy/GPT_6_Astra_Direct_EEF/README.md) | [VPP2](policy/VPP2/README.md) | [Liber-0 Lite](policy/Liber_0_lite/README.md) | [Liber-0 Preview](policy/Liber_0_preview/README.md) | [Discrete Forcing](policy/Discrete_Forcing/README.md) | [EgoVLA](policy/EgoVLA/README.md) |
-| [MM-ABC](policy/MM_ABC/README.md) | [HWM-CogWAM](policy/HWM_CogWAM/README.md) | [ME-Brain-1.0](policy/ME_Brain_1/README.md) | [MachEmbodied-U0](policy/MachEmbodied-U0/README.md) | [ME-Dex-1.0](policy/ME_Dex_1_0/README.md) | [Rex_M1_preview](policy/Rex_M1_preview/README.md) |
-| [Spark_0](policy/Spark_0/README.md) | [ViGAR](policy/ViGAR/README.md) | [CloudRobo-WM](policy/CloudRobo_WM/README.md) | [Wall-X](policy/WallX/README.md) | [EWAM](policy/EWAM/README.md) | [GO-3 Nano Preview](policy/GO_3_Nano_preview/README.md) |
-| [MWA-Phoenix](policy/MWA_Phoenix/README.md) | [PICA-WAM](policy/PICA_WAM/README.md) | [PrismWAM](policy/PrismWAM/README.md) | [Q0-Preview](policy/Q0_Preview/README.md) | [WorldLA](policy/WorldLA/README.md) | |
-| [demo_policy](policy/demo_policy/README.md) | | | | | |
 
-Adding a policy of your own, or entering a leaderboard, both go through a PR — see [Add Your Own Policy](#-add-your-own-policy).
+<a id="-integrated-policies"></a>
 
-## 🧩 Framework Overview
+## 🧭 已接入策略
 
-XPolicyLab separates model-side dependencies from environment-side dependencies, so each side retains its native stack and may run locally or remotely. One adapter serves benchmarks, simulators, and physical robots.
+上游包含 77 个策略和一个 demo。本工作区按用户确认保留以下八个 adapter，模型运行验证另行开展：
+
+| 策略 | 用途 | 说明 |
+| --- | --- | --- |
+| [GR00T_N17](policy/GR00T_N17/README.md) | GR00T N1.7 adapter | 按需验证 |
+| [TinyVLA](policy/TinyVLA/README.md) | TinyVLA adapter | 按需验证 |
+| [FastWAM](policy/FastWAM/README.md) | Fast-WAM adapter | 按需验证 |
+| [LingBot_VA](policy/LingBot_VA/README.md) | LingBot-VA adapter | 按需验证 |
+| [LingBot_VLA](policy/LingBot_VLA/README.md) | LingBot-VLA adapter | 按需验证 |
+| [StarVLA](policy/StarVLA/README.md) | StarVLA adapter | 按需验证 |
+| [Pi_05](policy/Pi_05/README.md) | 已有本地复现主线 | LIBERO 配方与资产已存在，效果尚待规范重跑 |
+| [demo_policy](policy/demo_policy/README.md) | 无权重公共链路检查 | 标准 adapter 参考 |
+
+其余 70 个 adapter（含 ACT、DP）保存在 Git 中，用 `python3 scripts/policy_workspace.py list` 查看，
+用 `python3 scripts/policy_workspace.py focus <POLICY>` 在默认集合之外展开，
+用 `python3 scripts/policy_workspace.py full` 恢复全部。详见[策略工作区](policy/README.md)。
+
+<a id="-framework-overview"></a>
+
+## 🧩 框架概览
+
+XPolicyLab 把模型侧依赖与环境侧依赖拆开，两侧保留各自原生栈，可本地或远程运行。一个 adapter 同时服务 benchmark、仿真器与真机。
 
 <div align="center">
 <img src="assets/infra.png" alt="XPolicyLab infrastructure" width="100%"/>
-<p><em>Infrastructure of XPolicyLab. One adapter serves benchmarks, simulators, and physical robots.</em></p>
+<p><em>XPolicyLab 基础设施。一个 adapter 服务 benchmark、仿真器与真机。</em></p>
 </div>
 
 ```text
@@ -120,7 +143,7 @@ policy server                              environment client
 deploy.yml deployment config               benchmark task and observation API
 ```
 
-A typical adapter contains:
+典型 adapter 包含：
 
 ```text
 policy/<POLICY>/
@@ -138,56 +161,58 @@ policy/<POLICY>/
 └── model.py                     # model adapter, served by the policy server
 ```
 
-`model.py` implements the model-facing API. `deploy.py` bridges environment observations to model-server calls. Use [policy/demo_policy](policy/demo_policy/README.md) as the minimal adapter reference.
+`model.py` 实现面向模型的 API。`deploy.py` 把环境观测桥接到模型 server 调用。最小参考见 [policy/demo_policy](policy/demo_policy/README.md)。
 
-`model.py` should define a `Model` class with this shape:
-
-
-| Method                                | Contract                                                                                                                                                                  |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `__init__(model_cfg)`                 | Load model config, checkpoints, processors, and per-run overrides from `deploy.yml`.                                                                                      |
-| `update_obs(obs)`                     | Update model state from one observation dictionary.                                                                                                                       |
-| `update_obs_batch(obs_list)`          | Update model state from a list of observation dictionaries.                                                                                                               |
-| `get_action()`                        | Return one action chunk as a list of action dictionaries.                                                                                                                 |
-| `get_action_batch(env_idx_list=None)` | Return batched action chunks aligned with active environment indices.                                                                                                     |
-| `reset()`                             | Clear model-side state between evaluation episodes. It takes no arguments — a policy that needs a first observation should `reset()` and then take a normal `update_obs`. |
+`model.py` 应定义如下形态的 `Model` 类：
 
 
-The policy server decodes camera colors before `update_obs` / `update_obs_batch`, so `obs["vision"][<camera>]["color"]` always arrives as an image array — `model.py` never decodes.
+| 方法                                    | 契约                                                                   |
+| ------------------------------------- | -------------------------------------------------------------------- |
+| `__init__(model_cfg)`                 | 从 `deploy.yml` 加载模型配置、checkpoint、processor 与按次运行的覆盖项。               |
+| `update_obs(obs)`                     | 用一个观测字典更新模型状态。                                                       |
+| `update_obs_batch(obs_list)`          | 用一组观测字典更新模型状态。                                                       |
+| `get_action()`                        | 返回一个动作 chunk（动作字典列表）。                                                |
+| `get_action_batch(env_idx_list=None)` | 返回与活跃环境索引对齐的 batch 动作 chunk。                                         |
+| `reset()`                             | 在评测 episode 之间清空模型侧状态。无参数 —— 需要首帧观测的策略应先 `reset()`，再正常 `update_obs`。 |
 
-The default policy-server protocol is websocket (`protocol: ws` in `deploy.yml`); `legacy_tcp` exists only for adapters that have not migrated yet. The transport handles reconnects, retries, keepalive, and long model-loading cold starts for you — a normal adapter never touches it.
+
+策略 server 在 `update_obs` / `update_obs_batch` 之前已解码相机颜色，因此 `obs["vision"][<camera>]["color"]` 始终是图像数组 —— `model.py` 从不解码。
+
+默认策略 server 协议是 websocket（`deploy.yml` 中 `protocol: ws`）；`legacy_tcp` 仅留给尚未迁移的 adapter。传输层替你处理重连、重试、keepalive 与模型加载冷启动 —— 正常 adapter 不必碰它。
 
 <details>
-<summary>Transport details and timeout tuning (only if evaluation hangs or drops)</summary>
+<summary>传输细节与超时调参（仅在评测卡住或断连时需要）</summary>
 
-- **Retries are safe**: each request carries a `request_id` that the client reuses across reconnects, and the server answers duplicates from a cache instead of running a non-idempotent call twice. A `timeout` error is the exception — the server may still be running the call, so treat it as fatal for that trial rather than retrying.
-- **Server restarts abort the run**: if a reconnect lands on a different server process, the client raises `ServerRestartedError`, because the fresh server lost the model state.
-- **Cold start**: the server loads the model before opening its port, so an early client just retries (default budget 15 min). `eval.sh` also gates the client behind `wait_for_policy_server.sh`.
-- **Errors**: the client only sees `str(exc)`; the full traceback of a model failure is logged on the *policy server* side, so look there first.
-- **Serialization** is msgpack with numpy support (`torch.Tensor` auto-converts). Three quirks: `tuple` arrives as `list`, decoded numpy arrays are read-only views (copy before in-place edits), and int dict keys arrive as strings.
+- **重试是安全的**：每个请求带 `request_id`，client 在重连后复用；server 用缓存回答重复请求，而不会把非幂等调用跑两遍。`timeout` 错误是例外 —— server 可能仍在执行该调用，对该 trial 应视为致命错误，不要重试。
+- **Server 重启会中止本次 run**：若重连落到不同 server 进程，client 抛出 `ServerRestartedError`，因为新 server 已丢失模型状态。
+- **冷启动**：server 在打开端口前先加载模型，过早连上的 client 会重试（默认预算 15 分钟）。`eval.sh` 也会通过 `wait_for_policy_server.sh` 卡住 client。
+- **错误**：client 只看到 `str(exc)`；模型失败的完整 traceback 记在 *policy server* 一侧，先查那里。
+- **序列化** 是带 numpy 支持的 msgpack（`torch.Tensor` 自动转换）。三个注意点：`tuple` 会变成 `list`；解码后的 numpy 数组是只读 view（原地修改前先 copy）；int 型 dict key 会变成字符串。
 
-Optional `deploy.yml` keys — omit them to keep the defaults:
+可选 `deploy.yml` 键 —— 省略则用默认值：
 
 
-| Key                                        | Default | Purpose                                                                         |
-| ------------------------------------------ | ------- | ------------------------------------------------------------------------------- |
-| `request_timeout_s`                        | `120.0` | Timeout for one `update_obs` / `get_action` call — raise it for slow inference. |
-| `max_connect_attempts`                     | `180`   | Cold-start retries while the server is still loading.                           |
-| `connect_retry_delay_s`                    | `5.0`   | Delay between those retries.                                                    |
-| `max_connect_seconds`                      | `900.0` | Wall-clock cap on the whole retry loop; `0` disables it.                        |
-| `connect_timeout_s`                        | `30.0`  | Timeout for one connect attempt.                                                |
-| `handshake_timeout_s`                      | `60.0`  | Timeout for the HELLO round-trip.                                               |
-| `ws_ping_interval_s` / `ws_ping_timeout_s` | `20.0`  | Keepalive ping/pong; `null` disables.                                           |
-| `close_timeout_s`                          | `10.0`  | Cap on the closing handshake.                                                   |
+| Key                                        | Default | Purpose                                      |
+| ------------------------------------------ | ------- | -------------------------------------------- |
+| `request_timeout_s`                        | `120.0` | 单次 `update_obs` / `get_action` 超时 —— 推理慢就调大。 |
+| `max_connect_attempts`                     | `180`   | server 仍在加载时的冷启动重试次数。                        |
+| `connect_retry_delay_s`                    | `5.0`   | 上述重试之间的间隔。                                   |
+| `max_connect_seconds`                      | `900.0` | 整个重试循环的墙钟上限；`0` 表示关闭。                        |
+| `connect_timeout_s`                        | `30.0`  | 单次连接尝试超时。                                    |
+| `handshake_timeout_s`                      | `60.0`  | HELLO 往返超时。                                  |
+| `ws_ping_interval_s` / `ws_ping_timeout_s` | `20.0`  | Keepalive ping/pong；`null` 关闭。               |
+| `close_timeout_s`                          | `10.0`  | 关闭握手上限。                                      |
 
 </details>
 
 
 
 
-## ⚡ Quick Start
+<a id="-quick-start"></a>
 
-Clone XPolicyLab as a normal Python project for adapter development, offline checks, training from prepared data, or your own environment client:
+## ⚡ 快速开始
+
+把 XPolicyLab 当作普通 Python 项目克隆，用于 adapter 开发、离线检查、基于已准备数据的训练，或自建环境 client：
 
 ```bash
 mkdir demo_env
@@ -197,16 +222,16 @@ cd XPolicyLab
 pip install -e .
 ```
 
-You do not need a simulator to start model-side development: the bundled downloader fetches prepared RoboDojo data — several simulator export versions plus HDF5 `RoboDojo_real` real-world data — for training and offline debugging. If you use `XPolicyLab/` as a subpackage inside the RoboDojo repository, follow RoboDojo's own data download scripts instead.
+开始模型侧开发不需要仿真器：自带下载脚本可拉取已准备好的 RoboDojo 数据 —— 多种仿真导出版本，以及 HDF5 `RoboDojo_real` 真机数据 —— 用于训练与离线调试。若把 `XPolicyLab/` 作为 RoboDojo 仓库内的子包使用，请改用 RoboDojo 自己的数据下载脚本。
 
-Download a small Hugging Face demo bundle and keep the data next to `XPolicyLab/`:
+下载一个小的 Hugging Face demo 包，并把数据放在 `XPolicyLab/` 旁：
 
 ```bash
 # From demo_env/XPolicyLab
 bash scripts/RoboDojo/download_robodojo_data.sh demo
 ```
 
-This creates:
+会得到：
 
 ```text
 demo_env/
@@ -214,9 +239,9 @@ demo_env/
 └── XPolicyLab/
 ```
 
-The same script pulls the full exports — `hdf5`, `lerobot_v3.0`, `lerobot_v2.1`, and `real` (real-world HDF5) — each into its own `../data/` folder. The two LeRobot exports come from the [official converters](#official-lerobot-conversion), so you can regenerate them for your own task subset or resolution.
+同一脚本可拉取完整导出 —— `hdf5`、`lerobot_v3.0`、`lerobot_v2.1` 与 `real`（真机 HDF5）—— 各自进独立的 `../data/` 目录。两套 LeRobot 导出由[官方转换器](#官方-lerobot-转换)生成，你也可以按自己的任务子集或分辨率重新生成。
 
-With this setup, you can test data conversion, model loading, training scripts, and debug-mode evaluation before connecting to a simulator-backed benchmark.
+有了这套布局，就可以在接入仿真 backed benchmark 之前，先测数据转换、模型加载、训练脚本与 debug 模式评测。
 
 ```bash
 export EVAL_ENV_TYPE=debug
@@ -225,7 +250,7 @@ bash install.sh
 bash eval.sh RoboDojo stack_bowls demo arx_x5 joint 0 0 0 base base
 ```
 
-The template for any adapter is the same — swap `demo_policy` and the argument values:
+任意 adapter 的模板相同 —— 替换 `demo_policy` 与参数即可：
 
 ```bash
 export EVAL_ENV_TYPE=debug
@@ -234,11 +259,13 @@ bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> \
   <seed> <policy_gpu_id> <env_gpu_id> <policy_env_or_uv_path> <eval_env_conda_env>
 ```
 
-For RoboDojo simulation, mount `XPolicyLab/` beside the simulator-side `env_cfg/`, `scripts/`, `src/eval_client/`, and `task/` directories.
+做 RoboDojo 仿真时，把 `XPolicyLab/` 挂在仿真侧的 `env_cfg/`、`scripts/`、`src/eval_client/`、`task/` 目录旁。
 
-## 🔄 Common Workflow
+<a id="-common-workflow"></a>
 
-Most adapters expose the same top-level shape. Some policies add extra arguments, consume upstream-native datasets, or skip training support. Follow the policy README when it differs from this template.
+## 🔄 通用工作流
+
+多数 adapter 顶层形态相同。有的策略会增加额外参数、吃上游原生数据集，或不支持训练。与本文模板不一致时，以该策略 README 为准。
 
 ```bash
 cd policy/<POLICY>
@@ -259,27 +286,29 @@ bash eval.sh <bench_name> <task_name> <ckpt_name> <env_cfg_type> <action_type> <
 
 
 
-### What the arguments mean
+<a id="what-the-arguments-mean"></a>
 
-When you run `eval.sh`, you are mostly answering: **which benchmark family**, **which task to run now**, **which checkpoint to load**, **which robot setup**, **joint or end-effector actions**, and **which seed**. The same names travel through `process_data.sh`, `train.sh`, and `eval.sh`, so you do not have to rename things at every step.
+### 参数含义
 
-
-| Argument                       | In plain English                                                                 | Examples                                                                 |
-| ------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `bench_name`                   | Which benchmark or dataset family this run belongs to                            | `RoboDojo`, `RoboTwin`                                                   |
-| `task_name`                    | The task the environment client should run right now                             | `stack_bowls`, `push_T` — can differ from the tasks seen during training |
-| `ckpt_name`                    | Which weights to load: a short run nickname, the full run folder name, or a path | `cotrain`, `RoboDojo-cotrain-arx_x5-joint-0`, `checkpoints/my_run/`      |
-| `env_cfg_type`                 | Robot / camera / scene configuration key                                         | `arx_x5`                                                                 |
-| `action_type`                  | Action space the policy outputs                                                  | usually `joint` or `ee`                                                  |
-| `seed`                         | Training or evaluation seed / layout id                                          | `0`, `1`, `2`                                                            |
-| `policy_gpu_id` / `env_gpu_id` | Which GPU runs the model vs. the simulator/client                                | `0`, `1`                                                                 |
-| `policy_env_or_uv_path`        | Conda env name or uv env path for the policy server                              | your policy-side env                                                     |
-| `eval_env_conda_env`           | Conda env for the simulator / robot client                                       | your eval-side env                                                       |
+跑 `eval.sh` 时，你主要在回答：**哪个 benchmark 家族**、**现在跑哪个任务**、**加载哪个 checkpoint**、**哪套机器人配置**、**关节还是末端动作**、**哪个 seed**。同一套名字贯穿 `process_data.sh`、`train.sh` 与 `eval.sh`，不必每步改名。
 
 
-**How `ckpt_name` resolves.** Usually you pass the short nickname used during training, such as `cotrain`, and XPolicyLab combines it with the other args into `checkpoints/RoboDojo-cotrain-arx_x5-joint-0/`. You can also pass the full folder name, or a path — relative paths resolve from the policy directory, absolute paths work too. Some adapters honor explicit keys in `deploy.yml` (`checkpoint_path`, `model_path`, ...). When in doubt, check the policy README.
+| 参数                             | 通俗含义                         | 示例                                                                |
+| ------------------------------ | ---------------------------- | ----------------------------------------------------------------- |
+| `bench_name`                   | 本次 run 所属的 benchmark / 数据集家族 | `RoboDojo`、`RoboTwin`                                             |
+| `task_name`                    | 环境 client 现在要跑的任务            | `stack_bowls`、`push_T` —— 可与训练时见过的任务不同                            |
+| `ckpt_name`                    | 要加载的权重：短昵称、完整 run 目录名，或路径    | `cotrain`、`RoboDojo-cotrain-arx_x5-joint-0`、`checkpoints/my_run/` |
+| `env_cfg_type`                 | 机器人 / 相机 / 场景配置键             | `arx_x5`                                                          |
+| `action_type`                  | 策略输出的动作空间                    | 通常为 `joint` 或 `ee`                                                |
+| `seed`                         | 训练或评测 seed / 布局 id           | `0`、`1`、`2`                                                       |
+| `policy_gpu_id` / `env_gpu_id` | 模型与仿真/client 各用哪张 GPU        | `0`、`1`                                                           |
+| `policy_env_or_uv_path`        | 策略 server 的 conda 环境名或 uv 路径 | 你的策略侧环境                                                           |
+| `eval_env_conda_env`           | 仿真 / 机器人 client 的 conda 环境   | 你的评测侧环境                                                           |
 
-**A concrete eval example:**
+
+**`ckpt_name` 如何解析。** 通常传训练时用的短昵称，例如 `cotrain`，XPolicyLab 会与其它参数拼成 `checkpoints/RoboDojo-cotrain-arx_x5-joint-0/`。也可以传完整目录名或路径 —— 相对路径相对策略目录解析，绝对路径亦可。部分 adapter 会认 `deploy.yml` 里的显式键（`checkpoint_path`、`model_path` 等）。不确定时查该策略 README。
+
+**一个具体的评测例子：**
 
 ```bash
 cd policy/AHA_WAM
@@ -289,13 +318,15 @@ bash eval.sh RoboDojo stack_bowls cotrain arx_x5 joint 0 0 0 aha_wam robodojo
 
 
 
-## 🔌 Deployment Flow
+<a id="-deployment-flow"></a>
 
-During evaluation, the policy server and the environment client talk over websocket. That split is what lets you keep Isaac Sim / robot drivers on one machine and a heavy VLA on another.
+## 🔌 部署流程
 
-For same-machine evaluation, `eval.sh` is enough — it starts the server, runs the client, and cleans up when you are done.
+评测时，策略 server 与环境 client 通过 websocket 通信。这种拆分让你可以把 Isaac Sim / 机器人驱动放在一台机器上，把沉重的 VLA 放在另一台。
 
-For split-machine deployment, start the policy server on the GPU machine and bind to `0.0.0.0` so other machines can reach it. The client connects to the policy machine's real IP, not `0.0.0.0`.
+同机评测用 `eval.sh` 即可 —— 它会启动 server、跑 client，并在结束后清理。
+
+跨机部署时，在 GPU 机器上启动策略 server，并绑定 `0.0.0.0`，以便其它机器可达。Client 连的是策略机的真实 IP，不是 `0.0.0.0`。
 
 ```bash
 cd policy/<POLICY>
@@ -304,7 +335,7 @@ bash setup_eval_policy_server.sh \
   <policy_gpu_id> <policy_env_or_uv_path> <policy_server_port> 0.0.0.0
 ```
 
-Then start the environment client on the simulator or robot machine:
+然后在仿真或机器人机器上启动环境 client：
 
 ```bash
 cd policy/<POLICY>
@@ -314,39 +345,43 @@ bash setup_eval_env_client.sh \
   <policy_server_port> <policy_server_ip>
 ```
 
-`<additional_info>` is a comma-separated `key=value` string forwarded to the environment client. `eval.sh` builds it automatically as `ckpt_name=<ckpt_name>,action_type=<action_type>`, which is the right default for most adapters.
+`<additional_info>` 是转发给环境 client 的逗号分隔 `key=value` 字符串。`eval.sh` 会自动建成 `ckpt_name=<ckpt_name>,action_type=<action_type>`，对多数 adapter 这就是正确默认。
 
-`EVAL_ENV_TYPE` selects the environment-side backend:
+`EVAL_ENV_TYPE` 选择环境侧后端：
 
-- unset or `sim`: real simulator-backed evaluation, when the integration is installed.
-- `debug`: offline wiring check — no Isaac, no robot, just shapes and IO.
-- `real`: real-robot client path, where the hardware integration exists.
-
-
-
-## 📐 Standard Data Formats
-
-XPolicyLab standardizes the observation and trajectory dictionaries passed between adapters, converters, and environment clients. Individual policies may convert this standard format into their upstream-native format.
-
-### Decode only through `decode_image_bit`
-
-> **Always decode through `decode_image_bit`, and always encode through `encode_image_bit`.** Both live in `XPolicyLab.utils.process_data`. Decoding image bits yourself is unsupported, because they come in two byte formats and a hand-rolled decoder is right on one and reverses the channels on the other. `decode_image_bit` tells them apart and returns RGB for every version of the data, so its output never needs a channel swap. Offline conversion and training must go through it. Runtime observations arrive already decoded, so `model.py` must not decode at all.
-
-Stored image bits come in two formats, and both decode to RGB:
+- 未设置或 `sim`：真实仿真 backed 评测（集成已安装时）。
+- `debug`：离线接线检查 —— 无 Isaac、无真机，只验 shape 与 IO。
+- `real`：真机 client 路径（硬件集成存在时）。
 
 
-| Format       | How it was written                                                                                          | What a standard decoder sees                                                                                           |
-| ------------ | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **legacy**   | an RGB array handed straight to `cv2.imencode`, which reads its input as BGR                                | red and blue swapped — the bytes are channel-reversed against the JPEG standard, and `cv2.imdecode` reverses them back |
-| **standard** | `encode_image_bit`, which converts to BGR first and stamps a JPEG `COM` segment with the payload `XPL-RGB1` | correct colors                                                                                                         |
+
+<a id="-standard-data-formats"></a>
+
+## 📐 标准数据格式
+
+XPolicyLab 标准化 adapter、转换器与环境 client 之间传递的观测与轨迹字典。个别策略可将该标准格式再转成上游原生格式。
+
+<a id="decode-only-through-decode_image_bit"></a>
+
+### 图像解码只能走 `decode_image_bit`
+
+> **始终通过 `decode_image_bit` 解码，并通过 `encode_image_bit` 编码。** 二者都在 `XPolicyLab.utils.process_data`。自行解码图像 bits 不受支持：它们有两种字节格式，手写解码器对一种正确、对另一种会通道颠倒。`decode_image_bit` 会区分二者，并对每一版数据返回 RGB，因此其输出不需要再做通道交换。离线转换与训练必须走它。运行时观测已解码，所以 `model.py` 完全不应解码。
+
+存储的图像 bits 有两种格式，解码后都是 RGB：
 
 
-Legacy data is never migrated — JPEG cannot swap channels losslessly — so the two formats coexist indefinitely and may appear in the same training run. The marker sits inside the buffer rather than in a file attribute so that a single buffer is self-describing, and `COM` is a standard segment that every decoder skips, so it costs 12 bytes and breaks nothing. If you must read these buffers without OpenCV, you can do it correctly: PIL surfaces the marker as `Image.open(...).info["comment"]`, so check for `b"XPL-RGB1"` and reverse the channels yourself when it is absent. What you cannot do is skip the check — a PIL-based loader tested against fresh data looks perfect and then quietly corrupts older episodes.
+| 格式           | 写入方式                                                     | 标准解码器看到的结果                                    |
+| ------------ | -------------------------------------------------------- | --------------------------------------------- |
+| **legacy**   | 把 RGB 数组直接交给 `cv2.imencode`（它按 BGR 读入）                   | 红蓝对调 —— 字节相对 JPEG 标准通道颠倒，`cv2.imdecode` 再颠倒回来 |
+| **standard** | `encode_image_bit`：先转 BGR，并在 JPEG `COM` 段写入载荷 `XPL-RGB1` | 颜色正确                                          |
 
-All pose values use `[x, y, z, qw, qx, qy, qz]`. Images are RGB end to end — `decode_image_bit` hands back RGB and no channel conversion happens anywhere else in the pipeline. Note one naming quirk: runtime observations carry camera extrinsics as `extrinsics_matrix`, while trajectory files store `extrinsic_matrix`.
+
+Legacy 数据永不迁移 —— JPEG 无法无损换通道 —— 因此两种格式会长期共存，甚至出现在同一次训练中。标记写在 buffer 内而非文件属性上，使单个 buffer 自描述；`COM` 是标准段，所有解码器都会跳过，只占 12 字节且不破坏兼容。若必须在无 OpenCV 时读取这些 buffer：PIL 会把标记暴露为 `Image.open(...).info["comment"]`，检查是否为 `b"XPL-RGB1"`，缺失时自行反转通道。不能跳过检查 —— 只在新数据上测过的 PIL loader 看起来完美，却会悄悄毁掉旧 episode。
+
+所有位姿值为 `[x, y, z, qw, qx, qy, qz]`。图像端到端为 RGB —— `decode_image_bit` 返回 RGB，管线其它处不做通道转换。注意一个命名差异：运行时观测里相机外参是 `extrinsics_matrix`，轨迹文件里是 `extrinsic_matrix`。
 
 <details>
-<summary>Observation Data Format</summary>
+<summary>Observation 数据格式</summary>
 
 ```text
 Observation Data Format
@@ -390,7 +425,7 @@ Observation Data Format
 </details>
 
 <details>
-<summary>Trajectory Data Format</summary>
+<summary>Trajectory 数据格式</summary>
 
 ```text
 Trajectory Data Format
@@ -434,7 +469,7 @@ Trajectory Data Format
 
 </details>
 
-Useful converter helpers:
+常用转换辅助函数：
 
 ```python
 from XPolicyLab.utils.load_file import load_hdf5
@@ -445,35 +480,37 @@ from XPolicyLab.utils.process_data import (
 )
 ```
 
-`decode_image_bit` and `encode_image_bit` are the only supported codec for trajectory image bits (see [above](#decode-only-through-decode_image_bit)). They mirror each other's input handling — one frame or a sequence, in any of the containers the trajectory files use — and already-converted values pass through untouched. `get_robot_action_dim_info(env_cfg_type)` returns robot-specific `arm_dim` and `ee_dim` lists, so adapters do not need to hard-code action dimensions.
+`decode_image_bit` 与 `encode_image_bit` 是轨迹图像 bits 唯一受支持的编解码对（见[上文](#图像解码只能走-decode_image_bit)）。二者对输入处理对称 —— 单帧或序列，以及轨迹文件使用的各种容器 —— 已转换的值会原样通过。`get_robot_action_dim_info(env_cfg_type)` 返回机器人特定的 `arm_dim` 与 `ee_dim` 列表，adapter 不必硬编码动作维度。
 
-[CONTRIBUTING.md](CONTRIBUTING.md#modelpy) states the RGB exceptions and how a new robot gets registered in both `_robot_info.json` files.
+[CONTRIBUTING.md](CONTRIBUTING.md#modelpy) 说明了 RGB 例外，以及新机器人如何在两份 `_robot_info.json` 中注册。
 
-### Official LeRobot conversion
+<a id="official-lerobot-conversion"></a>
 
-Many policies train on LeRobot datasets instead of the trajectory format above. `scripts/transform_lerobot_v21_format.py` and `scripts/transform_lerobot_v30_format.py` are the official converters — one per LeRobot dataset version, both emitting the same keys.
+### 官方 LeRobot 转换
+
+许多策略在 LeRobot 数据集上训练，而不是上面的轨迹格式。`scripts/transform_lerobot_v21_format.py` 与 `scripts/transform_lerobot_v30_format.py` 是官方转换器 —— 各对应一个 LeRobot 数据集版本，输出相同的键。
 
 <details>
-<summary>LeRobot format</summary>
+<summary>LeRobot 格式</summary>
 
 | Key | Shape | Content |
 | --- | --- | --- |
-| `observation.state` | `(D,)` float32 | `left_arm_joint_states` + `left_ee_joint_states` + `right_arm_joint_states` + `right_ee_joint_states`, concatenated in that order |
-| `action` | `(D,)` float32 | same layout, from the trajectory's `action/` group |
+| `observation.state` | `(D,)` float32 | `left_arm_joint_states` + `left_ee_joint_states` + `right_arm_joint_states` + `right_ee_joint_states`，按该顺序拼接 |
+| `action` | `(D,)` float32 | 相同布局，来自轨迹的 `action/` 组 |
 | `observation.images.cam_high` | `(3, H, W)` video | `vision/cam_head/colors` |
 | `observation.images.cam_left_wrist` | `(3, H, W)` video | `vision/cam_left_wrist/colors` |
 | `observation.images.cam_right_wrist` | `(3, H, W)` video | `vision/cam_right_wrist/colors` |
 
 </details>
 
-Prepared LeRobot exports published for a benchmark — such as the `lerobot_v2.1` / `lerobot_v3.0` sets in [Quick Start](#-quick-start) — are produced this way, so a policy that consumes one needs no conversion step of its own.
+为某个 benchmark 发布的现成 LeRobot 导出 —— 例如[快速开始](#-快速开始)中的 `lerobot_v2.1` / `lerobot_v3.0` —— 即按此方式生成，因此消费它们的策略无需再做自己的转换步骤。
 
-> **A policy that trains on LeRobot data must say so in its own README**, under `Data Processing`: the dataset version, and whether the keys are the ones above. If they are, name the converter and say whether `process_data.sh` is absent or only links and normalizes the dataset. If they are not — an upstream-native layout, extra keys, a latent tree, different camera names — state the differences and how to produce that layout. [policy/RISE](policy/RISE/README.md) and [policy/AHA_WAM](policy/AHA_WAM/README.md) are worked examples of the first case, [policy/LingBot_VA](policy/LingBot_VA/README.md) of the second.
+> **在 LeRobot 数据上训练的策略必须在自己的 README 的 `Data Processing` 中声明**：数据集版本，以及键是否与上文一致。若一致，写明转换器名称，并说明 `process_data.sh` 是缺失还是仅做链接与规范化。若不一致 —— 上游原生布局、额外键、latent 树、不同相机名 —— 写明差异及如何产出该布局。[policy/RISE](policy/RISE/README.md) 与 [policy/AHA_WAM](policy/AHA_WAM/README.md) 是第一种的实例，[policy/LingBot_VA](policy/LingBot_VA/README.md) 是第二种。
 
 <details>
-<summary>Running a conversion</summary>
+<summary>运行转换</summary>
 
-Both scripts take `<bench_name>.<task_name>.<env_cfg_type>` glob patterns, read trajectories from `../data/` and robot dimensions from `../env_cfg/`, and merge every matched target into one dataset under `HF_LEROBOT_HOME/<repo_id>`. Run them from the repo root of a checkout that sits beside those two directories ([Quick Start](#-quick-start)).
+两个脚本都接收 `<bench_name>.<task_name>.<env_cfg_type>` glob，从 `../data/` 读轨迹、从 `../env_cfg/` 读机器人维度，并把所有匹配目标合并为一个数据集，写到 `HF_LEROBOT_HOME/<repo_id>`。在旁置这两个目录的 checkout 仓库根目录运行（[快速开始](#-快速开始)）。
 
 ```bash
 # One robot, every task under it.
@@ -485,48 +522,56 @@ python scripts/transform_lerobot_v21_format.py "<bench_name>.*.*" \
   --max_episode 50 --resolution 240x320
 ```
 
-- **`D` is padded, not per-robot.** Each arm is zero-padded to the widest dimensions among the matched targets, so one dataset can mix robots; `robot_type` is `unified_robot` and motors are named `left_joint_<i>` / `right_joint_<i>`.
-- **All three camera keys always exist.** A camera missing from the source is filled with black frames, so features stay stable across robots.
-- **Images are RGB**, decoded through `decode_image_bit` and never swapped afterwards ([above](#decode-only-through-decode_image_bit)).
-- **Joint-space bimanual only.** Both read the `*_arm_joint_states` / `*_ee_joint_states` keys and fail on a trajectory that carries only pose or single-arm keys.
-- **Video is AV1 by default.** `DatasetConfig.vcodec` picks the encoder: `libsvtav1` for AV1, `h264_nvenc` for H.264.
-- The two differ beyond dataset version only in encoding throughput: v3.0 writes images from 8 worker processes and streams video at CRF 18.
+- **`D` 是按最宽维度 padding，不是按机器人。** 每条臂会零填充到匹配目标中最宽的维度，因此一个数据集可混多种机器人；`robot_type` 为 `unified_robot`，电机名为 `left_joint_<i>` / `right_joint_<i>`。
+- **三个相机键始终存在。** 源数据缺失的相机会用黑帧填充，使特征跨机器人稳定。
+- **图像为 RGB**，经 `decode_image_bit` 解码后不再交换通道（见[上文](#图像解码只能走-decode_image_bit)）。
+- **仅支持关节空间双臂。** 二者读取 `*_arm_joint_states` / `*_ee_joint_states`，对仅含位姿或单臂键的轨迹会失败。
+- **视频默认为 AV1。** `DatasetConfig.vcodec` 选择编码器：`libsvtav1` 为 AV1，`h264_nvenc` 为 H.264。
+- 两个版本除数据集版本外，只在编码吞吐上不同：v3.0 用 8 个 worker 写图，并以 CRF 18 流式写视频。
 
 </details>
 
 
 
-## 💾 Data And Checkpoints
+<a id="-data-and-checkpoints"></a>
 
-Training and data prep usually name things predictably so eval can find them without guesswork:
+## 💾 数据与 Checkpoint
+
+训练与数据准备通常按可预测方式命名，以便评测无需猜测即可找到：
 
 ```text
 <bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>
 <bench_name>-<ckpt_name>-<env_cfg_type>-<action_type>-<seed>
 ```
 
-So if you trained with `bench_name=RoboDojo`, `ckpt_name=cotrain`, `env_cfg_type=arx_x5`, `action_type=joint`, `seed=0`, the run lands in `checkpoints/RoboDojo-cotrain-arx_x5-joint-0/`. How `ckpt_name` maps back to these folders at eval time is covered in [Common Workflow](#-common-workflow).
+因此若训练时用了 `bench_name=RoboDojo`、`ckpt_name=cotrain`、`env_cfg_type=arx_x5`、`action_type=joint`、`seed=0`，run 会落在 `checkpoints/RoboDojo-cotrain-arx_x5-joint-0/`。评测时 `ckpt_name` 如何映射回这些目录，见[通用工作流](#-通用工作流)。
 
-Policies may also use upstream-native layouts or explicit paths in `deploy.yml`. Check the policy README before assuming a naming convention. For a small local dataset to play with, see [Quick Start](#-quick-start).
+策略也可能使用上游原生布局，或在 `deploy.yml` 中写显式路径。在假定命名约定前先查策略 README。本地小数据集试用见[快速开始](#-快速开始)。
 
-## 🤝 Add Your Own Policy
+<a id="-add-your-own-policy"></a>
 
-Community policies are welcome — open a PR that adds `policy/<POLICY>/`. A PR is also **required** to enter the official [RoboDojo](https://robodojo-benchmark.com/LeaderBoard) and [RoboTwin](https://robotwin-platform.github.io/leaderboard) leaderboards, together with the checkpoint that reproduces your results.
+## 🤝 接入你自己的策略
 
-How to scaffold an adapter, what a submission must contain, the checks to run before a PR, and the PR template all live in [CONTRIBUTING.md](CONTRIBUTING.md). Start from [policy/demo_policy](policy/demo_policy/README.md), or `bash scripts/create_policy.sh <POLICY_NAME>`.
+欢迎社区策略 —— 开 PR 添加 `policy/<POLICY>/`。进入官方 [RoboDojo](https://robodojo-benchmark.com/LeaderBoard) 与 [RoboTwin](https://robotwin-platform.github.io/leaderboard) 排行榜同样**需要** PR，并附上可复现结果的 checkpoint。
 
-## 🤖 Coding Agents
+如何搭 adapter、提交必须包含什么、PR 前要跑哪些检查、以及 PR 模板，都在 [CONTRIBUTING.md](CONTRIBUTING.md)。从 [policy/demo_policy](policy/demo_policy/README.md) 开始，或运行 `bash scripts/create_policy.sh <POLICY_NAME>`。
 
-Two skills under [.agents/skills](.agents/skills) are loaded by Cursor, Claude Code, and Codex (via `.cursor/skills` and `.claude/skills` symlinks). [AGENTS.md](AGENTS.md) is the always-on rule set.
+<a id="-coding-agents"></a>
 
-- `xpolicylab-model-integration` — build an adapter. A prompt like `Integrate <POLICY_NAME> into XPolicyLab` is enough.
-- `xpolicylab-adapter-check` — audit one before a PR (`Check policy/<POLICY_NAME>`).
+## 🤖 编程 Agent
 
-The paste-in checklist for agents that load none of these is in [CONTRIBUTING.md](CONTRIBUTING.md#using-a-coding-agent).
+[.agents/skills](.agents/skills) 下有两个 skill，Cursor、Claude Code 和 Codex 会通过 `.cursor/skills` 与 `.claude/skills` 的 symlink 自动加载。[AGENTS.md](AGENTS.md) 是常驻规则。
 
-## 📝 Citation
+- `xpolicylab-model-integration` —— 构建 adapter。一句 `Integrate <POLICY_NAME> into XPolicyLab` 即可。
+- `xpolicylab-adapter-check` —— PR 前审计（`Check policy/<POLICY_NAME>`）。
 
-If XPolicyLab helps your research, please cite:
+不支持这些机制时要粘贴的清单在 [CONTRIBUTING.md](CONTRIBUTING.md#using-a-coding-agent)。
+
+<a id="-citation"></a>
+
+## 📝 引用
+
+若 XPolicyLab 对你的研究有帮助，请引用：
 
 ```bibtex
 @article{community2026xpolicylab,
@@ -539,12 +584,14 @@ If XPolicyLab helps your research, please cite:
 
 
 
-## 📬 Contact
+<a id="-contact"></a>
 
-Tianxing Chen (project lead): [chentianxing2002@gmail.com](mailto:chentianxing2002@gmail.com)
+## 📬 联系方式
 
-A collaborative open-source project led by **MMLab@HKU** and **THU**.
+项目负责人 Tianxing Chen：[chentianxing2002@gmail.com](mailto:chentianxing2002@gmail.com)
 
-**Core Lead Authors**: Tianxing Chen, Yue Chen, Tian Nian, Zijian Cai, Guangyu Chen, Wenwei Lin, Qiwei Liang.
+由 **MMLab@HKU** 与 **THU** 主导的协作开源项目。
 
-The full contributor list — spanning every integrated policy — lives on the [project website](https://xpolicylab.github.io/).
+**Core Lead Authors**：Tianxing Chen, Yue Chen, Tian Nian, Zijian Cai, Guangyu Chen, Wenwei Lin, Qiwei Liang.
+
+完整贡献者列表 —— 覆盖每个已接入策略 —— 见[项目网站](https://xpolicylab.github.io/)。

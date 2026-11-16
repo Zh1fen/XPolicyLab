@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  echo "Usage: $0 <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id> [OpenPI training flags...]"
+  echo "Existing runs are preserved by default. Pass --resume to continue, or --overwrite to explicitly replace a run."
+  exit 0
+fi
 if [[ $# -lt 6 ]]; then
-  echo "Usage: $0 <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id>" >&2
+  echo "Usage: $0 <bench_name> <ckpt_name> <env_cfg_type> <action_type> <seed> <gpu_id> [OpenPI training flags...]" >&2
   exit 1
 fi
 
@@ -12,6 +17,7 @@ env_cfg_type=$3
 action_type=$4
 seed=$5
 gpu_id=$6
+shift 6
 
 POLICY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ckpt_setting is the run directory name; pass it verbatim as ckpt_name to eval.sh.
@@ -22,7 +28,8 @@ lerobot_repo_id="${OPENPI_LEROBOT_REPO_ID:-${bench_name}-${ckpt_name}-${env_cfg_
 gpu_count=$(awk -F',' '{print NF}' <<<"${gpu_id}")
 fsdp_devices="${OPENPI_FSDP_DEVICES:-$(( gpu_count < 2 ? 1 : 2 ))}"
 
-mkdir -p "${ckpt_dir}"
+# OpenPI owns checkpoint directory creation and refuses an existing run unless
+# --resume or --overwrite was explicitly supplied by the caller.
 export CUDA_VISIBLE_DEVICES="${gpu_id}"
 
 # LeRobot loads parquet via HuggingFace datasets, which builds pyarrow mmap cache
@@ -47,4 +54,4 @@ XLA_PYTHON_CLIENT_MEM_FRACTION="${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.9}" \
     --fsdp-devices="${fsdp_devices}" \
     --checkpoint-dir-override="${ckpt_dir}" \
     --seed="${seed}" \
-    --overwrite
+    "$@"
