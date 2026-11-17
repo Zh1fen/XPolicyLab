@@ -1,8 +1,13 @@
-# XPolicyLab Agent Guide
+# RoboLab Agent Guide
 
-XPolicyLab wraps each robot policy as a self-contained adapter under `policy/<POLICY>/`. The policy
+RoboLab wraps each robot policy as a self-contained adapter under `policy/<POLICY>/`. The policy
 server imports it as `XPolicyLab.policy.<POLICY>.model`, so this checkout is always used as a
 package inside a parent workspace — never as the top-level project.
+
+The product name is RoboLab; `XPolicyLab` remains the compatibility import namespace and checkout
+directory used by existing adapters. Do not rename imports, protocol markers, or external workspace
+paths as a branding edit. Keep upstream attribution in [UPSTREAM.md](UPSTREAM.md) and preserve licenses.
+Start the local console with `./start.sh`; it selects local/example configuration automatically.
 
 - Submission standard: [CONTRIBUTING.md](CONTRIBUTING.md). Reference adapter: `policy/demo_policy/`.
   Data formats: [README](README.md#-standard-data-formats).

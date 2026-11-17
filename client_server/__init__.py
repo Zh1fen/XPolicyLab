@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import XPolicyLab  # Install public namespace aliases before relative imports.
+
 from typing import Any
 
 __all__ = [

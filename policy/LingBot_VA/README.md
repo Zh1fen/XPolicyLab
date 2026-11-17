@@ -111,3 +111,8 @@ bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0
 ## 注意事项
 
 训练必须完成 latent 准备；推理必须提供基础模型，并保持单环境。
+
+## 启动与进程管理
+
+eval.sh 保留十个位置参数，使用共享生命周期回收本次创建的服务与 client 进程组。
+模型专有差异与 CPU 验证范围见[生命周期说明](../../docs/reference/adapter-lifecycle.md)。

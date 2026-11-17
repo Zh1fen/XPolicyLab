@@ -3,6 +3,9 @@
 状态：已有训练配方、环境、checkpoint 和历史视频；本轮未重训、未运行真实模型推理或仿真评测。
 本手册用于接续现有工作，不构成官方 π0.5 结果复现声明。
 
+网页控制台默认一次运行 Spatial、Object、Goal、10 四组，每任务 50 次，共 2,000 episodes；
+LIBERO-90 作为扩展实验单列，不混入常用四组平均。参见[评测口径](../reference/evaluation-protocols.md)。
+
 ## 路径与版本
 
 以下是 2026-11-15 实际检查到的本机资产；可移植脚本不依赖这些个人路径。
@@ -154,7 +157,6 @@ openpi/uv.lock
 此外还需固定模型目标配方、验证 stats 与权重配对、记录逐 episode 结果，并决定是否将 LIBERO 接到标准 XPolicyLab client。
 现有标准 `model.py` 的三相机输入不能直接用于此双相机 LIBERO 配方；动作语义也需要单独适配。
 
-标准 RoboDojo 转换脚本另有已确认的遗留问题：`openpi/scripts/process_data.py` 的 `ROOT_PATH`
-指向 checkout 内部，因此 env_cfg 路径错误；动作维度直接打开 JSON，未复用共享 helper；
-`lerobot.common.datasets` 在当前安装的 LeRobot 0.4.4 中不存在。静态语法通过无法发现这些运行问题。
-这条转换路径本轮未修复、未运行；现有 LIBERO v3.0 数据不经过它，不能混淆两条路径。
+标准 RoboDojo 转换入口已修正父工作区路径和 LeRobot 0.4.4 API，并通过临时 HDF5 小样本逐帧回读。
+数据路径、输出保护和 next-state 动作规则见[Pi_05 数据处理](../../policy/Pi_05/README.md#数据处理)。
+该转换与此处既有 LIBERO v3.0 数据是独立路径，现有数据未重新生成；视频模式和大规模转换未重跑。

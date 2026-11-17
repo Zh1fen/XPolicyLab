@@ -14,11 +14,13 @@ eval_env_conda_env=${10}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Current Dir
 XPL_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 UTILS_DIR="${XPL_ROOT}/utils"
+source "${UTILS_DIR}/eval_lifecycle.sh"
+eval_init
 
 SERVER_SCRIPT="${SCRIPT_DIR}/setup_eval_policy_server.sh"
 CLIENT_SCRIPT="${SCRIPT_DIR}/setup_eval_env_client.sh"
 
-policy_server_port=$(bash "${UTILS_DIR}/get_free_port.sh")
+policy_server_port=$(eval_free_port)
 policy_server_ip="localhost"
 
 CONFIG_NAME="${LINGBOT_VA_CONFIG_NAME:-robotwin30_train}"
@@ -63,25 +65,12 @@ if [[ -n "${LINGBOT_VA_VA_PORT:-}" ]]; then
     va_server_port="${LINGBOT_VA_VA_PORT}"
     LAUNCH_VA_SERVER=0
 else
-    va_server_port=$(bash "${UTILS_DIR}/get_free_port.sh")
-    va_master_port=$(bash "${UTILS_DIR}/get_free_port.sh")
+    va_server_port=$(eval_free_port)
+    va_master_port=$(eval_free_port)
     LAUNCH_VA_SERVER=1
 fi
 
 VA_SERVER_PID=""
-cleanup() {
-    if [[ -n "${SERVER_PID:-}" ]]; then
-        echo "[MAIN] kill forward server ${SERVER_PID}"
-        kill "${SERVER_PID}" 2>/dev/null || true
-    fi
-    if [[ -n "${VA_SERVER_PID:-}" ]]; then
-        echo "[MAIN] kill wan_va server group ${VA_SERVER_PID}"
-        # VA_SERVER_PID is the setsid process-group leader; kill the whole group
-        # so torch.distributed.run and its worker exit too.
-        kill -TERM "-${VA_SERVER_PID}" 2>/dev/null || true
-    fi
-}
-trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
 # 1) wan_va backend server (holds the real weights). Launched in its own
@@ -122,8 +111,9 @@ PY
             exec bash launch_wan_va_server.sh "${LVA_GPU_ID}" "${LVA_PORT}"
         ' &
     VA_SERVER_PID=$!
+    eval_register "${VA_SERVER_PID}"
 
-    bash "${UTILS_DIR}/wait_for_policy_server.sh" \
+    eval_wait_server \
         "${va_server_host}" \
         "${va_server_port}" \
         "${VA_SERVER_PID}" \
@@ -142,7 +132,7 @@ export VA_SERVER_PORT="${va_server_port}"
 # ---------------------------------------------------------------------------
 echo "[MAIN] start forward server, policy_server_port=${policy_server_port}"
 
-bash "${SERVER_SCRIPT}" \
+setsid bash "${SERVER_SCRIPT}" \
     "${bench_name}" \
     "${task_name}" \
     "${ckpt_name}" \
@@ -157,11 +147,13 @@ bash "${SERVER_SCRIPT}" \
 
 SERVER_PID=$!
 
-bash "${UTILS_DIR}/wait_for_policy_server.sh" "${policy_server_ip}" "${policy_server_port}" "${SERVER_PID}" "Policy server" 600
+eval_register "${SERVER_PID}"
+
+eval_wait_server "${policy_server_ip}" "${policy_server_port}" "${SERVER_PID}" "Policy server" 600
 
 echo "[MAIN] start client, server=${policy_server_ip}:${policy_server_port}"
 
-bash "${CLIENT_SCRIPT}" \
+eval_run_client bash "${CLIENT_SCRIPT}" \
     "${bench_name}" \
     "${task_name}" \
     "${ckpt_name}" \

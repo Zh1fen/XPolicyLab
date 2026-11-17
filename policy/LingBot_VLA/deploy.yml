@@ -17,3 +17,5 @@ checkpoint_num: 600
 result_dir: "./results/lingbot-vla/"
 
 obs_transform_pipeline: "xspark-v1.0"
+
+gpu_id: 0

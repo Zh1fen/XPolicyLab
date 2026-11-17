@@ -1,4 +1,4 @@
-# XPolicyLab 中文说明
+# RoboLab 中文说明
 
 项目已统一使用中文主文档，请阅读 [README.md](README.md)。本文件保留为旧链接的兼容入口。
 

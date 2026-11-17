@@ -249,25 +249,21 @@ def unpack_robot_state(
 
     return result
 
-def get_robot_action_dim_info(env_cfg_type):
-    env_cfg = load_yaml(os.path.join(os.path.dirname(__file__), "../../env_cfg", f"{env_cfg_type}.yml"))
-    robot_name = env_cfg['config']['robot']
-    robot_action_dim_info = load_json(os.path.join(os.path.dirname(__file__), "../../env_cfg/robot", "_robot_info.json"))[robot_name]
+def get_robot_action_dim_info(env_cfg_type, *, env_cfg_root=None):
+    from XPolicyLab.utils.environment_config import load_environment_metadata
+    return load_environment_metadata(env_cfg_type, root=env_cfg_root)[1]
 
-    return robot_action_dim_info
 
-def get_batch_size(env_cfg_type):
-    env_cfg = load_yaml(os.path.join(os.path.dirname(__file__), "../../env_cfg", f"{env_cfg_type}.yml"))
-    sim_cfg = env_cfg['config']['sim']
-    sim_info = load_yaml(os.path.join(os.path.dirname(__file__), "../../env_cfg/sim", f"{sim_cfg}.yml"))
+def get_batch_size(env_cfg_type, *, env_cfg_root=None):
+    from XPolicyLab.utils.environment_config import env_config_root as env_config_root_fn, load_environment_config
+    config = load_environment_config(env_cfg_type, root=env_cfg_root)
+    sim = load_yaml(env_config_root_fn(env_cfg_root) / "sim" / f"{config['config']['sim']}.yml")
+    return sim["scene"]["num_envs"]
 
-    return sim_info['scene']['num_envs']
 
-def get_action_dim(env_cfg_type):
-    env_cfg = load_yaml(os.path.join(os.path.dirname(__file__), "../../env_cfg", f"{env_cfg_type}.yml"))
-    robot_name = env_cfg['config']['robot']
-    robot_action_dim_info = load_json(os.path.join(os.path.dirname(__file__), "../../env_cfg/robot", "_robot_info.json"))[robot_name]
-    return sum(robot_action_dim_info["arm_dim"]) + sum(robot_action_dim_info["ee_dim"])
+def get_action_dim(env_cfg_type, *, env_cfg_root=None):
+    dimensions = get_robot_action_dim_info(env_cfg_type, env_cfg_root=env_cfg_root)
+    return sum(dimensions["arm_dim"]) + sum(dimensions["ee_dim"])
 
 # Two image bit stream formats exist in XPolicyLab data, and both decode to RGB.
 #

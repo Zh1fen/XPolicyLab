@@ -34,7 +34,7 @@ RoboDojo 转换使用官方键：`observation.state`、`action`、
 当前本机 LeRobot 为 0.4.4，现有 LIBERO 导出为 v3.0。
 
 可选 `expert_data_num` 只限制转换 episode 数，不参与 checkpoint 命名。
-`raw_task_dirs` 是 `data/<bench_name>/` 下的源任务名或逗号分隔列表，默认等于 `ckpt_name`；
+`raw_task_dirs` 是父工作区 `data/<bench_name>/` 下的源任务名或逗号分隔列表，默认等于 `ckpt_name`；
 也可直接作为第 5 个参数传入，为同一份原始数据生成不同名字的导出。
 
 ```bash
@@ -42,6 +42,14 @@ bash process_data.sh <bench_name> <ckpt_name> <env_cfg_type> <action_type> [expe
 bash process_data.sh RoboDojo stack_bowls arx_x5 joint
 bash process_data.sh RoboDojo stack_bowls_50ep arx_x5 joint 50 stack_bowls
 ```
+
+转换入口默认使用 openpi/.venv/bin/python，可通过 OPENPI_DATA_PYTHON 覆盖。
+--input-root、--env-cfg-root、--output-root 和 --seed 可覆盖原始数据、机器人配置、输出与指令随机种子。
+默认输出仍是该环境的 HF_LEROBOT_HOME；已有 LIBERO 数据位于外部 datasets，转换不会迁移或覆盖它们。
+此 HDF5 配方只接受 joint：action 为下一帧关节 state，末帧保持自身，使用父配置采样频率。
+相机映射为 cam_high / cam_left_wrist / cam_right_wrist；当前输出为已安装 LeRobot 0.4.4 的 v3 格式。
+输出目录存在、找不到 episode、字段异常或写出失败均返回非零，不覆盖现有数据。
+
 
 <a id="training"></a>
 
@@ -99,3 +107,8 @@ bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0
 | `PI05_BASE_PARAMS` | 本地 LIBERO 配方的初始权重；训练前显式设置以保证可移植 |
 
 `OPENPI_ROOT`、`OPENPI_SRC` 由相关本地脚本消费；原生 LIBERO wrapper 的变量与默认值见[手册](../../docs/reproduction/pi05-libero.md)。
+
+## 启动与进程管理
+
+eval.sh 保留十个位置参数，使用共享生命周期回收本次创建的服务与 client 进程组。
+模型专有差异与 CPU 验证范围见[生命周期说明](../../docs/reference/adapter-lifecycle.md)。

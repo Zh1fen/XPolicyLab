@@ -94,3 +94,8 @@ bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0
 | `GR00T_ROOT` / `GR00T_VIDEO_BACKEND` | 可选项目根目录与视频后端覆盖 |
 
 数据规模实验用 `GR00T_SRC_DATASET` 选择子集，并在 `ckpt_name` 标明，如 `stack_bowls_50ep`。
+
+## 启动与进程管理
+
+eval.sh 保留十个位置参数，使用共享生命周期回收本次创建的服务与 client 进程组。
+模型专有差异与 CPU 验证范围见[生命周期说明](../../docs/reference/adapter-lifecycle.md)。

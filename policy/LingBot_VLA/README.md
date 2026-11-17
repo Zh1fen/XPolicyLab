@@ -96,3 +96,8 @@ bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0
 | `LEROBOT_DATASET_REPO_ID` | 数据集名，arx_x5 默认 RoboDojo_sim_arx-x5_v30 |
 | `QWEN25_PATH` | 评测用 Qwen2.5-VL-3B-Instruct 权重 |
 | `FLASH_ATTN_WHEEL_URL` | 可选安装 wheel URL |
+
+## 启动与进程管理
+
+eval.sh 保留十个位置参数，使用共享生命周期回收本次创建的服务与 client 进程组。
+模型专有差异与 CPU 验证范围见[生命周期说明](../../docs/reference/adapter-lifecycle.md)。

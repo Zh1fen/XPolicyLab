@@ -1,5 +1,7 @@
 """Simulator/hardware environment contracts and single-episode execution helpers."""
 
+import XPolicyLab  # Install public namespace aliases before relative imports.
+
 from .adapters import CallbackEnvironment, StepEnvAdapter, TaskEnvAdapter
 from .contracts import ExecutionFeedback, ResetResult, StepResult, validate_robot_action
 from .mock import MockEnvironment

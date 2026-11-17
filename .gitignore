@@ -18,6 +18,7 @@ dist/
 **/eval_result/
 **/wandb/
 .cache/
+configs/web.local.json
 
 # H_RDT local artifacts and large model assets
 policy/H_RDT/.cache/

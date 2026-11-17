@@ -42,3 +42,7 @@ va_server_host: "127.0.0.1"
 va_server_port: 10001
 
 obs_transform_pipeline: "xspark-v1.0"
+
+ckpt_name: null
+
+gpu_id: 0

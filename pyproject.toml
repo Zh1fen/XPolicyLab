@@ -3,7 +3,8 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "xpolicylab"
+name = "robolab-infra"
+description = "RoboLab robot research infrastructure and local console"
 version = "0.0.1"
 requires-python = ">=3.10"
 dependencies = [
@@ -18,9 +19,12 @@ dependencies = [
 ]
 
 [tool.setuptools]
-py-modules = ["XPolicyLab"]
+py-modules = ["XPolicyLab", "_robolab_compat"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["client_server*", "utils*", "environment*"]
+include = ["client_server*", "utils*", "environment*", "web*", "evaluation*"]
 exclude = ["policy*", "build*", "scripts*", "__pycache__*", "tests*"]
+
+[tool.setuptools.package-data]
+web = ["static/*"]

@@ -44,41 +44,22 @@ CAMERA_CANDIDATES = {
 }
 
 
-def _get_nested(data, *keys, default=None):
-    cur = data
-    for key in keys:
-        if not isinstance(cur, dict) or key not in cur:
-            return default
-        cur = cur[key]
-    return cur
+from XPolicyLab.utils.episode_input import ConversionInput
+
+def _aloha_reader():
+    return ConversionInput(data_root=PROJECT_ROOT / "data", env_cfg_root=PROJECT_ROOT / "env_cfg",
+                           camera_candidates=CAMERA_CANDIDATES, instruction_reader=_find_instructions)
+
+def _get_nested(*args, **kwargs):
+    return getattr(ConversionInput, "_get_nested")(_aloha_reader(), *args, **kwargs)
 
 
-def _ensure_2d_float32(array, name):
-    arr = np.asarray(array, dtype=np.float32)
-    if arr.ndim == 1:
-        arr = arr[:, None]
-    if arr.ndim != 2:
-        raise ValueError(f"{name} should be 2D, got shape {arr.shape}")
-    return arr
+def _ensure_2d_float32(*args, **kwargs):
+    return getattr(ConversionInput, "_ensure_2d_float32")(_aloha_reader(), *args, **kwargs)
 
 
-def _ensure_utf8_strings(value):
-    if value is None:
-        return []
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, bytes):
-        return [value.decode("utf-8")]
-    if isinstance(value, np.ndarray):
-        if value.ndim == 0:
-            return _ensure_utf8_strings(value.item())
-        return [str(x.decode("utf-8") if isinstance(x, (bytes, np.bytes_)) else x) for x in value.tolist()]
-    if isinstance(value, (list, tuple)):
-        result = []
-        for item in value:
-            result.extend(_ensure_utf8_strings(item))
-        return result
-    return [str(value)]
+def _ensure_utf8_strings(*args, **kwargs):
+    return getattr(ConversionInput, "_ensure_utf8_strings")(_aloha_reader(), *args, **kwargs)
 
 
 def _find_instructions(data):
@@ -114,24 +95,8 @@ def _decode_images_if_needed(images):
     return frames.astype(np.uint8, copy=False)
 
 
-def _concat_state_parts(parts, name):
-    valid_parts = []
-    horizon = None
-    for part_name, value in parts:
-        if value is None:
-            continue
-        arr = _ensure_2d_float32(value, f"{name}.{part_name}")
-        if horizon is None:
-            horizon = arr.shape[0]
-        elif arr.shape[0] != horizon:
-            raise ValueError(
-                f"{name}.{part_name} horizon mismatch: expected {horizon}, got {arr.shape[0]}"
-            )
-        valid_parts.append(arr)
-
-    if not valid_parts:
-        return None
-    return np.concatenate(valid_parts, axis=1)
+def _concat_state_parts(*args, **kwargs):
+    return getattr(ConversionInput, "_concat_state_parts")(_aloha_reader(), *args, **kwargs)
 
 
 def _extract_qpos(data):

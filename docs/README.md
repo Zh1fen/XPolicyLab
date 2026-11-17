@@ -1,6 +1,6 @@
-# 研究 infra 文档入口
+# RoboLab 文档入口
 
-本仓库基于 XPolicyLab，当前目标是建立可运行、可复现、可持续开发的机器人策略基础设施。
+RoboLab 是可运行、可复现、可持续开发的机器人科研基础设施；上游来源见[来源说明](../UPSTREAM.md)。
 先把一种真实策略在仿真中跑通，保留配置、结果和证据，再扩展模型与 benchmark。
 
 ## 按任务阅读
@@ -8,8 +8,10 @@
 | 要做什么 | 入口 |
 | --- | --- |
 | 了解现在做什么、还缺什么 | [当前状态](STATUS.md) → [范围与验收](project.md) |
-| 理解目录、协议和数据边界 | [架构地图](architecture.md) |
+| 理解目录、协议和数据边界 | [架构地图](architecture.md)、[评测后端](../evaluation/README.md) |
 | 接仿真/真机环境、统一执行反馈 | [环境接口与公共入口](../environment/README.md) |
+| 从网页管理评测与历史 | 根目录运行 `./start.sh`，详见[控制台](../web/README.md) |
+| 核对任务集、预算与成绩 | [评测范围与口径](reference/evaluation-protocols.md) |
 | 开发或让 agent 继续工作 | [开发与记录规范](development.md)、[根 AGENTS.md](../AGENTS.md) |
 | 运行已有 Pi_05 / LIBERO 路径 | [复现手册](reproduction/pi05-libero.md) |
 | 增加/恢复策略 | [策略工作区](../policy/README.md) |

@@ -60,7 +60,7 @@ def main() -> None:
         checkout.mkdir()
         for source in ("utils", "client_server", "environment", "policy/demo_policy"):
             shutil.copytree(ROOT / source, checkout / source, ignore=shutil.ignore_patterns("__pycache__"))
-        for source in ("__init__.py", "model_template.py", "setup_policy_server.py", "policy/__init__.py"):
+        for source in ("__init__.py", "_robolab_compat.py", "XPolicyLab.py", "model_template.py", "setup_policy_server.py", "policy/__init__.py"):
             shutil.copy2(ROOT / source, checkout / source)
         config_root = workspace / "env_cfg"
         (config_root / "robot").mkdir(parents=True)

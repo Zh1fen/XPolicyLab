@@ -69,3 +69,8 @@ bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0
 
 检查 `deploy.yml` 的 `model_path`、`model_base`、`stats_path`、`enable_lora`、`conv_mode`、`camera_keys`。
 训练与评测必须使用配套权重、相机配置与统计量。
+
+## 启动与进程管理
+
+eval.sh 保留十个位置参数，使用共享生命周期回收本次创建的服务与 client 进程组。
+模型专有差异与 CPU 验证范围见[生命周期说明](../../docs/reference/adapter-lifecycle.md)。

@@ -14,7 +14,7 @@ This is a **read-only audit**: report the fixes, do not apply them unless the us
 Run commands from the repo root unless noted.
 
 1. **Files** — required: `README.md`, `__init__.py`, `eval.sh`, `setup_eval_policy_server.sh`, `setup_eval_env_client.sh`, `deploy.yml`, `deploy.py`, `model.py`. Three more are required but have a declared exception: `process_data.sh` / `train.sh` may be absent for a declared eval-only submission, and `install.sh` may be absent when the environment comes entirely from an upstream recipe and the policy README's `Installation` section carries the manual steps (`policy/Dexora_1B`, `policy/X_WAM`). An undeclared absence is a fail.
-2. **deploy.yml** — `policy_name` equals the directory name (the server imports `XPolicyLab.policy.<policy_name>.model`). Ten keys are required and present in every adapter today: `policy_name`, `protocol` (`ws`), `host`, `port`, `bench_name`, `task_name`, `env_cfg_type`, `seed`, `action_type`, `eval_batch`. Keep a key even when a script defaults it — check the whole list, not just `protocol`. `ckpt_name` and `gpu_id` are optional (supplied per run), and model-specific extra keys are fine but must be documented in the policy README.
+2. **deploy.yml** — `policy_name` equals the directory name (the server imports `XPolicyLab.policy.<policy_name>.model`). The complete demo top-level key set is required: `policy_name`, `protocol` (`ws`), `host`, `port`, `bench_name`, `task_name`, `env_cfg_type`, `seed`, `action_type`, `eval_batch`. Keep a key even when a script defaults it — check the whole list, not just `protocol`. `ckpt_name` and `gpu_id` must also be present (per-run overrides; null is allowed where the adapter supports it), and model-specific extra keys are fine but must be documented in the policy README.
 3. **model.py** — `class Model(ModelTemplate)` implementing `__init__(model_cfg)`, `update_obs`, `update_obs_batch`, `get_action`, `get_action_batch(env_idx_list=None)`, `reset`. `AGENTS.md` at the repo root states the image, path, and dimension rules and why they hold; what to flag when auditing:
    - **Dimensions** — a hard-coded action dim, or a private re-implementation of the lookup instead of `get_robot_action_dim_info(env_cfg_type)`. Flag a direct `_robot_info.json` open in `policy/*/model.py` unless it is a documented fallback with a configurable root, as in `policy/AHA_WAM`. Flag a supported robot that is registered in only one of the two robot-info files. Flag runtime code that shells out to `utils/get_action_dim.sh`; do not flag the training path for it.
    - **`sys.path` root** — must be the parent of the checkout: `parents[2]` of the policy directory (`Path(__file__).resolve().parent`), which is `parents[3]` of the file itself. Judge each index by its base: from the policy directory, `parents[1]` or `parents[3]` is a bug; from the file, `parents[3]` is correct and `parents[2]` is the checkout itself.
@@ -39,7 +39,7 @@ Run commands from the repo root unless noted.
 
    ```bash
    # required deploy.yml keys that are missing
-   for k in policy_name protocol host port bench_name task_name env_cfg_type seed action_type eval_batch; do
+   for k in policy_name protocol host port bench_name task_name ckpt_name env_cfg_type seed action_type gpu_id eval_batch; do
      grep -q "^${k}:" policy/<POLICY>/deploy.yml || echo "missing: ${k}"
    done
    # sys.path root candidates — judge each index against its base (see check 3)

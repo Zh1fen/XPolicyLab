@@ -38,3 +38,5 @@ tiled: false
 timing_enabled: false
 default_instruction: follow the instruction
 allow_dummy_policy: false
+
+gpu_id: 0

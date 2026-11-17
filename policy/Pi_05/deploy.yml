@@ -20,3 +20,7 @@ train_config_name: pi05_base_aloha_full_sim_arx-x5_seed_0
 repo_id: arx_x5_sim
 
 port: 6000
+
+ckpt_name: null
+
+gpu_id: 0

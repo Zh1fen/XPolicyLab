@@ -67,7 +67,7 @@ def focus(policies: list[str]) -> None:
     }
     # Include new local support directories before their first commit as well.
     directories.update(
-        name for name in ("configs", "docs", "experiments", "tests", "environment") if (ROOT / name).is_dir()
+        name for name in ("configs", "docs", "experiments", "tests", "environment", "web") if (ROOT / name).is_dir()
     )
     directories.update(f"policy/{name}" for name in policies)
     git("sparse-checkout", "set", "--cone", "--stdin", input_text="\n".join(sorted(directories)) + "\n")

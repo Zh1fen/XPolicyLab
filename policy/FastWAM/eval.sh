@@ -17,25 +17,20 @@ eval_env_conda_env=${10}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 XPL_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 UTILS_DIR="${XPL_ROOT}/utils"
+source "${UTILS_DIR}/eval_lifecycle.sh"
+eval_init
 
 SERVER_SCRIPT="${SCRIPT_DIR}/setup_eval_policy_server.sh"
 CLIENT_SCRIPT="${SCRIPT_DIR}/setup_eval_env_client.sh"
 
-policy_server_port=$(bash "${UTILS_DIR}/get_free_port.sh")
+policy_server_port=$(eval_free_port)
 policy_server_ip="localhost"
 
 additional_info="ckpt_name=${ckpt_name},action_type=${action_type}"
 
-cleanup() {
-    if [[ -n "${SERVER_PID:-}" ]]; then
-        echo -e "\033[31m[CLEANUP] kill server PID=${SERVER_PID}\033[0m"
-        kill "${SERVER_PID}" 2>/dev/null || true
-    fi
-}
-trap cleanup EXIT
 
 echo -e "\033[32m[MAIN] start server, policy_server_port=${policy_server_port}\033[0m"
-bash "${SERVER_SCRIPT}" \
+setsid bash "${SERVER_SCRIPT}" \
     "${bench_name}" \
     "${task_name}" \
     "${ckpt_name}" \
@@ -47,12 +42,13 @@ bash "${SERVER_SCRIPT}" \
     "${policy_server_port}" \
     "${policy_server_ip}" &
 SERVER_PID=$!
+eval_register "${SERVER_PID}"
 echo -e "\033[32m[MAIN] server PID=${SERVER_PID}\033[0m"
 
-bash "${UTILS_DIR}/wait_for_policy_server.sh" "${policy_server_ip}" "${policy_server_port}" "${SERVER_PID}" "Policy server" 1200
+eval_wait_server "${policy_server_ip}" "${policy_server_port}" "${SERVER_PID}" "Policy server" 1200
 
 echo -e "\033[32m[MAIN] start client, server=${policy_server_ip}:${policy_server_port}\033[0m"
-bash "${CLIENT_SCRIPT}" \
+eval_run_client bash "${CLIENT_SCRIPT}" \
     "${bench_name}" \
     "${task_name}" \
     "${ckpt_name}" \

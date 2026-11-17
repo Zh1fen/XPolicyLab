@@ -81,3 +81,8 @@ bash eval.sh RoboDojo stack_bowls RoboDojo-cotrain-arx_x5-joint-0 arx_x5 joint 0
 
 训练和评测保持相同 `action_type`。参考路径直接使用 XPolicyLab 的 `pack_robot_state` / `unpack_robot_state`，
 不额外加入 adapter 私有的 `ee` 位姿转换。
+
+## 启动与进程管理
+
+eval.sh 保留十个位置参数，使用共享生命周期回收本次创建的服务与 client 进程组。
+模型专有差异与 CPU 验证范围见[生命周期说明](../../docs/reference/adapter-lifecycle.md)。

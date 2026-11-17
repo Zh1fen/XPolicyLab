@@ -1,6 +1,8 @@
-# Contributing a Policy to XPolicyLab
+# RoboLab 策略适配规范
 
-This page is the submission standard for `policy/<POLICY>/` adapters: what a complete adapter contains, how to test it, and what a PR must include. For repo-wide concepts and workflows, see the [中文 README](README.md). In this research workspace, project-owned READMEs use Chinese; `README_zh.md` is a compatibility entry. Vendored upstream documentation retains its original language.
+本页记录 RoboLab 的策略适配规范，保留现有兼容层的文件、Model、数据和部署契约。
+项目说明见 [README](README.md)，代码来源见 [UPSTREAM.md](UPSTREAM.md)。项目自有 README 使用中文；
+上游 vendored 文档与具体模型的原始贡献者信息保留。后续章节沿用兼容层技术标准。
 
 Two bundled Agent Skills automate most of this: `xpolicylab-model-integration` builds an adapter, `xpolicylab-adapter-check` audits one before a PR. They live in `.agents/skills/`, which `.cursor/skills` and `.claude/skills` symlink to, so Cursor, Claude Code and Codex all pick them up. [AGENTS.md](AGENTS.md) distills this page into the always-on rules every agent must follow; `CLAUDE.md` just imports it. See [Using a coding agent](#using-a-coding-agent).
 

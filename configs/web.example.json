@@ -1,0 +1,17 @@
+{
+  "libero": {
+    "client_root": "../../sim/libero",
+    "client_python": "../../sim/libero/.venv/bin/python",
+    "uv_bin": "uv",
+    "startup_timeout_s": 600,
+    "timeout_s": 86400
+  },
+  "policy_environments": {
+    "Pi_05": "uv"
+  },
+  "standard": {
+    "RoboDojo": {"eval_env": "robodojo", "policies": [], "tasks": ["stack_bowls_two"], "robots": ["arx_x5"]},
+    "RoboTwin": {"eval_env": "robotwin", "policies": [], "tasks": ["adjust_bottle"], "robots": ["arx_x5"]}
+  },
+  "real_profiles": []
+}

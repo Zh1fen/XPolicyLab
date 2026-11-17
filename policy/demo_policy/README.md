@@ -66,3 +66,8 @@ EVAL_ENV_TYPE=debug bash eval.sh RoboDojo stack_bowls demo arx_x5 joint 0 0 0 <p
 `DEBUG_OBS_ENCODED=1` 可额外检查编码图像输入；仿真需不设置 `EVAL_ENV_TYPE` 或设为 `sim`。
 分机运行见[部署流程](../../README.md#-deployment-flow)。
 改造为真实策略时，数据处理、训练和评测保持相同的 `ckpt_name`。
+
+## 启动与进程管理
+
+eval.sh 保留十个位置参数，使用共享生命周期回收本次创建的服务与 client 进程组。
+模型专有差异与 CPU 验证范围见[生命周期说明](../../docs/reference/adapter-lifecycle.md)。

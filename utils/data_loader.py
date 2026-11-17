@@ -1,10 +1,11 @@
 # Load data for data conversion
-import h5py, json, argparse
+import json, argparse
 import numpy as np
 
 from XPolicyLab.utils.process_data import decode_image_bit
 
 def load_xspark_v1(hdf5_path, decode_images=True):
+    import h5py
     def h5_to_dict(obj):
         d = {}
         for key, item in obj.items():

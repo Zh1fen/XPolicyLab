@@ -12,10 +12,7 @@ import sys
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-REQUIRED_KEYS = {
-    "policy_name", "protocol", "host", "port", "bench_name", "task_name",
-    "env_cfg_type", "seed", "action_type", "eval_batch",
-}
+REQUIRED_KEYS = set(re.findall(r"^([a-zA-Z_][\w]*):", (ROOT / "policy/demo_policy/deploy.yml").read_text(), re.MULTILINE))
 REQUIRED_FILES = {
     "README.md", "__init__.py", "deploy.yml", "deploy.py", "model.py",
     "eval.sh", "setup_eval_policy_server.sh", "setup_eval_env_client.sh",
@@ -48,6 +45,8 @@ def main() -> int:
     docs = sorted((ROOT / "docs").rglob("*.md")) + sorted((ROOT / "experiments").rglob("*.md"))
     docs += [ROOT / name for name in ("README.md", "README_zh.md", "AGENTS.md", "CONTRIBUTING.md", "policy/README.md")]
     docs += [ROOT / "environment/README.md"]
+    docs += [ROOT / "web/README.md", ROOT / "evaluation/README.md"]
+    docs += [ROOT / "UPSTREAM.md"]
     docs += [ROOT / "policy" / name / "README.md" for name in policies if isinstance(name, str)]
     for doc in docs:
         for raw in re.findall(r"\[[^\]]*\]\(([^)]+)\)", doc.read_text(encoding="utf-8")):
@@ -70,7 +69,10 @@ def main() -> int:
 
     python_files = list((ROOT / "scripts").glob("*.py")) + list((ROOT / "tests").glob("*.py"))
     python_files += list((ROOT / "environment").rglob("*.py")) + [ROOT / "model_template.py"]
-    shell_files: list[Path] = list((ROOT / "utils").glob("*.sh"))
+    python_files += list((ROOT / "web").glob("*.py"))
+    python_files += list((ROOT / "evaluation").rglob("*.py"))
+    python_files += list((ROOT / "utils").glob("*.py")) + [ROOT / "client_server/service.py", ROOT / "XPolicyLab.py", ROOT / "_robolab_compat.py"]
+    shell_files: list[Path] = list((ROOT / "utils").glob("*.sh")) + [ROOT / "start.sh"]
     for policy in policies:
         if not re.fullmatch(r"[A-Za-z0-9_-]+", policy):
             errors.append(f"Invalid policy directory name: {policy!r}")

@@ -197,3 +197,8 @@ RoboDojo 环境参数支持 conda 名或绝对 prefix；非交互 shell 未初�
 | `STARVLA_CKPT_PATH` / `STARVLA_ROOT` / `STARVLA_SERVER_PID` | 相关脚本的 checkpoint、源码与进程配置 |
 
 训练变量见训练章节，其他专用入口配置以脚本与发布清单为准。
+
+## 启动与进程管理
+
+eval.sh 保留十个位置参数，使用共享生命周期回收本次创建的服务与 client 进程组。
+模型专有差异与 CPU 验证范围见[生命周期说明](../../docs/reference/adapter-lifecycle.md)。

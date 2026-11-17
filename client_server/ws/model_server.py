@@ -583,52 +583,8 @@ class PolicyServer:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config-path", "--config_path", dest="config_path", required=True
-    )
-    parser.add_argument("--protocol", choices=("ws",), default="ws")
-    parser.add_argument("--host")
-    parser.add_argument("--port", type=int)
-    parser.add_argument("--relay-url", dest="relay_url")
-    args = parser.parse_args()
-
-    with open(args.config_path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-    if not isinstance(data, dict):
-        raise ValueError(f"config must be a YAML mapping: {args.config_path}")
-    deploy_cfg = data
-    if args.host is not None:
-        deploy_cfg["host"] = args.host
-    if args.port is not None:
-        deploy_cfg["port"] = args.port
-    if args.relay_url is not None:
-        deploy_cfg["relay_url"] = args.relay_url
-
-    policy_name = deploy_cfg.get("policy_name")
-    if not policy_name:
-        raise ValueError("policy_name must be specified in config")
-    module = importlib.import_module(f"XPolicyLab.policy.{policy_name}.model")
-    model_class = getattr(module, "Model")
-    model = model_class(deploy_cfg)
-
-    # deploy.yml may carry an explicit `port: null`; treat it as "unset"
-    # instead of crashing in int(None).
-    port = deploy_cfg.get("port")
-    server = PolicyServer(
-        model,
-        PolicyServerConfig(
-            host=deploy_cfg.get("host") or "0.0.0.0",
-            port=int(port) if port is not None else 19000,
-            ws_ping_interval_s=deploy_cfg.get("ws_ping_interval_s", 20.0),
-            ws_ping_timeout_s=deploy_cfg.get("ws_ping_timeout_s", 20.0),
-        ),
-    )
-    try:
-        asyncio.run(server.serve_forever())
-    except KeyboardInterrupt:
-        # serve_forever's finally already drained in-flight model calls.
-        logger.info("policy server interrupted; shut down cleanly")
+    from client_server.service import parse_args_and_config, serve
+    serve(parse_args_and_config(ws_only=True, default_port=19000))
 
 
 if __name__ == "__main__":

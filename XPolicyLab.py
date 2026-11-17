@@ -1,7 +1,5 @@
-# XPolicyLab.py
-# Make this module behave like a package so `XPolicyLab.<submodule>` works.
-
-import os as _os
-
-# Tell Python to search submodules under this directory
-__path__ = [_os.path.dirname(__file__)]
+"""Compatibility package when this checkout is imported or installed as a module."""
+from pathlib import Path
+__path__ = [str(Path(__file__).resolve().parent)]
+from XPolicyLab._robolab_compat import install
+install()

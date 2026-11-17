@@ -19,3 +19,5 @@ stats_path: null
 enable_lora: true
 conv_mode: pythia
 camera_keys: [cam_left_wrist, cam_right_wrist] # no need to change
+
+gpu_id: 0

@@ -1,7 +1,7 @@
-import h5py
 import yaml
 
 def load_hdf5(path: str) -> dict:
+    import h5py
 
     def _read(obj):
         # Dataset -> numpy / scalar / bytes->str
